@@ -1,0 +1,11 @@
+# features description file
+features_description.txt
+
+# task pdf
+*_1_.pdf
+
+#.Rhistory file
+.Rhistory
+
+# R project file
+*.Rproj
