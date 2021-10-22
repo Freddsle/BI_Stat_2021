@@ -18,7 +18,7 @@ setwd("./BI_Stat_2021/olimpic_games/report")
 
 ```
 
-# Imports and data checking
+# Import and data checking
 
 ## Import required library
 **tidyverse** library is used for processing data.\
@@ -59,7 +59,7 @@ Thus, we will save the maximum information about each of the participants.
 
 ### "Sex" column
 Check "Sex" column.
-```{r}
+```{r echo=FALSE}
 all_participants %>% filter(!(Sex %in% c('F', 'M', NA)))
 
 ```
@@ -76,7 +76,7 @@ all_participants <- all_participants %>%
 
 ### "Sport" column
 
-```{r}
+```{r echo=FALSE}
 all_participants %>% group_by(Sport) %>% summarise()
 ```
 
@@ -108,17 +108,18 @@ Do we have duplicate participants and how many are there: \
 In this case only one participant register twice.\
 Find the participant registered twice under different names: ID - `r format(all_participants %>% group_by(ID, Name) %>% summarise() %>% ungroup() %>% mutate(RowNumber = 1:n()) %>% filter(RowNumber != ID) %>% head(1)[1,1], scientific = FALSE)`.
 
-```{r message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-first_wrong_ID <- (all_participants %>% 
-                     group_by(ID, Name) %>%
-                     summarise() %>% 
-                     ungroup() %>% 
-                     mutate(RowNumber = 1:n()) %>%
-                     filter(RowNumber != ID) %>% 
-                     head(1)[1,1])
+wrong_ID <- (all_participants %>% 
+               group_by(ID, Name) %>%
+               summarise() %>% 
+               ungroup() %>% 
+               mutate(RowNumber = 1:n()) %>%
+               filter(RowNumber != ID) %>%  
+               head(1)[1,1])
 
-all_participants %>% filter(ID == first_wrong_ID)
+
+all_participants %>% filter(ID == wrong_ID)
 
 ```
 
@@ -131,36 +132,61 @@ all_participants <- all_participants %>%
 
 ```
 
-If we have a lot of wrong names and it is impossible to manually fix it by setting the correct name - assign the names to NA:
+If we have a lot of wrong names and it is impossible to manually fix it by setting the correct name - assign the names to constant number.\
+But in this case, we lose information about names for duplicate participants. Therefore, one should manually change the names whenever possible.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 
+f_names <- function(all_participants) {
+  all_participants %>% group_by(ID, Name) %>% summarise() %>% ungroup() %>% 
+    mutate(RowNumber = 1:n()) %>% filter(RowNumber != ID) %>% head(1)[1,1,1]
+}
 
-
+for (i in c(1:(ID[3] - ID[1])[1,1])){
+  all_participants <- all_participants %>% 
+    mutate(Name = ifelse((ID == f_names(all_participants)), toString(i), Name))
+}
 
 ```
-
 
 
 ### "Height" column
 The tallest person in the world was 272 cm tall. Let's check our data:
-```{r}
-all_participants %>% filter(Height > 272)
-all_participants %>% filter(ID=='23549' & Year == 2012)
+```{r echo=FALSE}
+all_participants %>% filter(ID %in% (all_participants %>% 
+                                     filter(Height > 272) %>%  
+                                     .[,1,1]) &
+                            Age %in% (all_participants %>% 
+                                      filter(Height > 272) %>%  
+                                      .[,4,1]))
 
 ```
 
-As can be seen from other data, the participant #23549 is 176 cm tall. Let's fix it:
+As can be seen from data, the participant #23549 is 176 cm tall. Let's fix it:
 ```{r}
 all_participants <- all_participants %>% 
   mutate(Height = ifelse((ID == '23549' & Height > 272), 176, Height))
 ```
 
+
+If it is impossible to manually fix it - assign the height to NA:
+```{r}
+
+all_participants <- all_participants %>% 
+  mutate(Height = ifelse(Height > 272, NA, Height))
+
+```
+
+
 ### 'Age' column
 The oldest person in the world died aged 122.
-```{r}
-all_participants %>% filter(Age > 122)
-all_participants %>% filter(ID=='23459' & Year == 1912)
+```{r echo=FALSE}
+all_participants %>% filter(ID %in% (all_participants %>% 
+                                    filter(Age > 122) %>%  
+                                    .[,1,1]) &
+                            Year %in% (all_participants %>% 
+                                      filter(Age > 122) %>%  
+                                      .[,10,1]))
 ```
 In 1912 he was 24. Fix:
 ```{r}
@@ -168,48 +194,146 @@ all_participants <- all_participants %>%
   mutate(Age = ifelse((ID == '23459' & Age == 240), 24, Age))
 ```
 
+If it is impossible to manually fix it - assign the age to NA:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Age = ifelse(Age > 122, NA, Age))
+```
+
+The youngest participant in the Games was about 8 years old - it is a record.\
+Let's check if there are younger members in the data. If the record was not broken - replace incorrect value manually or to NA
+
+```{r echo=FALSE}
+all_participants %>% filter(ID %in% (all_participants %>% 
+                                    filter(Age < 8) %>%  
+                                    .[,1,1]) &
+                            Year %in% (all_participants %>% 
+                                      filter(Age < 8) %>%  
+                                      .[,10,1]))
+```
+
+
 ### 'Weight' column
-Find the minimum weight. The 24-years Participant weighed 7 kg, but 
-```{r}
-all_participants %>% filter(Weight == min(Weight, na.rm = TRUE))
-all_participants %>% filter(ID=='68370', Age == 25)
+According to WHO, for a person 8 years old, a weight of 17 kg is considered very low. Let's check if we have participants with extremely low weight. 
+
+```{r echo=FALSE}
+all_participants %>% filter(ID %in% (all_participants %>% 
+                                     filter(Weight < 17) %>%  
+                                     .[,1,1]))
 ```
-This 'light' row does not provide us any additional information. We can remove it:
+At 25 he was 77 kg. Fix:
 ```{r}
-all_participants <- all_participants %>% filter(!(Weight == 7 & ID == '68370'))
+all_participants <- all_participants %>% 
+  mutate(Weight = ifelse((ID == '68370' & Weight == 7), 77, Weight))
 ```
+
+If it is impossible to manually fix it - assign the age to NA:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Weight = ifelse(Weight < 17, NA, Weight))
+```
+
+The fattest man in the world weighed 445 kg. Let's check our data.\
+If the record was not broken - replace incorrect value manually or to NA.
+```{r echo=FALSE}
+all_participants %>% filter(ID %in% (all_participants %>% 
+                                     filter(Weight > 445) %>%  
+                                     .[,1,1]))
+```
+
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Weight = ifelse(Weight > 445, NA, Weight))
+```
+
 
 ### 'Games' column
-There are some problems with seasons naming:
+We will find problems in seasons naming:
 
-```{r}
-all_participants %>% group_by(Games) %>%  summarise(n())
+```{r echo=FALSE}
+all_participants %>% 
+  filter(!(grepl('Summer', Games, fixed = TRUE) | 
+         grepl('Winter', Games, fixed = TRUE) |
+         is.na(Games)))
 ```
 
 Fix it:
 ```{r}
 all_participants <- all_participants %>% 
-  mutate(Games = ifelse((Games == '2000 Su' & !is.na(Games)), '2000 Summer', Games))
-all_participants <- all_participants %>% 
-  mutate(Games = ifelse((Games == '2004 Summe' & !is.na(Games)), '2004 Summer', Games))
+  mutate(Games=sub('S+.*$', 'Summer', Games)) %>% 
+  mutate(Games=sub('W+.*$', 'Winter', Games))
 ```
 
 
+### 'Year' column
+If we know the Game, we also know the year of its holding.\
+Let's fix the empty values.
+
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Year = ifelse((is.na(Year) & !is.na(Games)), 
+                       str_extract(Games,'^[[:digit:]]{4}'), 
+                       Year))
+```
+
+### 'Season' column
+If we know the Game, we also know the Season of its holding.\
+Let's fix the empty values.
+
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Season = ifelse((is.na(Season) & !is.na(Games)),
+                         str_extract(Games,'[[:alpha:]]+$'), 
+                         Season))
+```
 
 
 ### Others columns
 All is OK:
 
-```{r eval=FALSE, include=TRUE}
-all_participants %>% group_by(Medal) %>%  summarise()
+```{r echo=TRUE}
+all_participants %>% filter(!(Medal %in% c('Gold', 'Silver', 'Bronze', NA)))
 
-all_participants %>% group_by(Year) %>%  summarise()
+```
 
-all_participants %>% group_by(Season) %>%  summarise()
-
+```{r include=TRUE, echo=FALSE}
 all_participants %>% group_by(City) %>%  summarise()
 
 all_participants %>% group_by(Event) %>%  summarise() 
+
+
 ```
 
+# Olympic statistics
 
+## Youngest at the 1992 Olympics
+
+```{r include=FALSE}
+youngest_men_1992 <- all_participants %>% filter(Year == 1992 & Sex == 'M') %>% 
+  filter(Age == min(Age, na.rm = TRUE))
+
+youngest_woman_1992 <- all_participants %>% filter(Year == 1992 & Sex == 'F') %>% 
+  filter(Age == min(Age, na.rm = TRUE)) 
+```
+
+Age of the youngest athletes at the 1992 Olympics is **`r youngest_men_1992[1,4,1]`** years for men, and **`r youngest_woman_1992[1,4,1]`** years for women.
+
+## Mean and sd of Height variable 
+```{r include=FALSE}
+mean_man <- all_participants %>% filter(Sex == 'M') %>% 
+  summarise(mean(Height, na.rm = TRUE))
+mean_woman <- all_participants %>% filter(Sex == 'F') %>% 
+  summarise(mean(Height, na.rm = TRUE))
+
+sd_woman <- all_participants %>% filter(Sex == 'F') %>% 
+  summarise(sd(Height, na.rm = TRUE))
+sd_man <- all_participants %>% filter(Sex == 'M') %>% 
+  summarise(sd(Height, na.rm = TRUE))
+
+```
+
+For men Height variable has **mean = `r round(mean_man[1,1,1], 2)`** and **standard deviation = `r round(sd_man[1,1,1], 2)`**
+
+For women Height variable has **mean = `r round(mean_woman[1,1,1], 2)`** and **standard deviation = `r round(sd_woman[1,1,1], 2)`**
+
+## 
