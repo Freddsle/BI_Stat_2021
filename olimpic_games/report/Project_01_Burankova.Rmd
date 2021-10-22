@@ -1,28 +1,215 @@
 ---
 title: "Project №1 Burankova"
-output: html_document
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+Before data processing, please, set working directory to 
+```{bash eval=FALSE}
+setwd("./BI_Stat_2021/olimpic_games/report")
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+# Imports and data checking
 
-You can also embed plots, for example:
+## Import required library
+**tidyverse** library is used for processing data.\
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+This library include all required libraries:\
+- **ggplot2**, for data visualization.\
+- **dplyr**, for data manipulation.\
+- **tidyr**, for data tidying.\
+- **readr**, for data import.\
+- **purrr**, for functional programming.\
+
+## Import .csv data
+For import all .csv file to one list, run:
+```{r message=FALSE, warning=FALSE}
+all_participants <-
+  list.files(path = "../data/", pattern = "*.csv", full.names = TRUE) %>% 
+  map_df(~read_csv(.))
+```
+.csv files with raw data should be placed in /data/ folder.\
+The data:
+```{r echo=FALSE}
+head(all_participants)
+```
+
+
+## Check and fix the data
+
+For each column, we check for wrong values:\
+- if we know the missing value for the participant (by ID) from other rows from the same year - we change it.\
+- if we don`t know anything - change to NA.\
+We do not delete any records, even if they contain only information about the participant ID about which there are more complete records. Removing such "truncated" rows would distort information like "the number of participation at the each Olympiad for each participant".\
+Thus, we will save the maximum information about each of the participants.
+
+
+### "Sex" column
+Check "Sex" column.
+```{r}
+all_participants %>% filter(!(Sex %in% c('F', 'M', NA)))
+
+```
+
+Fix wrong values to correct (if known - for ID == '79609') or to NA:
+```{r}
+#Check if we know something about the participants:
+all_participants %>% filter(ID == '79609' | ID == '79630')
+
+all_participants <- all_participants %>% mutate(Sex = ifelse(ID == '79609', 'M', Sex))
+all_participants <- all_participants %>% 
+  mutate(Sex = ifelse(!Sex %in% c('F', 'M', NA), 'NA', Sex))
+```
+
+### "Sport" column
+
+```{r}
+all_participants %>% group_by(Sport) %>% summarise()
+```
+
+After reviewing the data manually, there find some problems with "football":
+
+```{r echo=FALSE}
+all_participants %>% filter(str_detect(Sport, "Footba")) %>% group_by(Sport) %>% 
+  summarise()
+```
+Change 'footba' to football:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Sport = ifelse(Sport == "Footba", 'Football', Sport))
+```
+
+### "Name" column
+Let's check the correctness of the participants names.\
+Each participant is assigned an ID. The ID is assigned sequentially, one participant for each ID.\
+The number of participants names have to match the number of IDs.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ID <- all_participants %>% group_by(ID, Name) %>% summarise() %>% ungroup() %>% 
+  mutate(RowNumber = 1:n()) %>% tail(1)
+```
+Do we have duplicate participants and how many are there: \
+- 'true' if there are no duplicates: **`r ID[3] - ID[1] == 0`**.\
+- how many duplicates: **`r (ID[3] - ID[1])[1,1]`**.\
+
+In this case only one participant register twice.\
+Find the participant registered twice under different names: ID - `r format(all_participants %>% group_by(ID, Name) %>% summarise() %>% ungroup() %>% mutate(RowNumber = 1:n()) %>% filter(RowNumber != ID) %>% head(1)[1,1], scientific = FALSE)`.
+
+```{r message=FALSE, warning=FALSE}
+
+first_wrong_ID <- (all_participants %>% 
+                     group_by(ID, Name) %>%
+                     summarise() %>% 
+                     ungroup() %>% 
+                     mutate(RowNumber = 1:n()) %>%
+                     filter(RowNumber != ID) %>% 
+                     head(1)[1,1])
+
+all_participants %>% filter(ID == first_wrong_ID)
+
+```
+
+Let's fix it:
+
+```{r}
+
+all_participants <- all_participants %>% 
+  mutate(Name = ifelse((Name == 'Pietro Spec' & ID == '113716'), 'Pietro Speciale', Name))
+
+```
+
+If we have a lot of wrong names and it is impossible to manually fix it by setting the correct name - assign the names to NA:
+
+```{r}
+
+
+
+
+```
+
+
+
+### "Height" column
+The tallest person in the world was 272 cm tall. Let's check our data:
+```{r}
+all_participants %>% filter(Height > 272)
+all_participants %>% filter(ID=='23549' & Year == 2012)
+
+```
+
+As can be seen from other data, the participant #23549 is 176 cm tall. Let's fix it:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Height = ifelse((ID == '23549' & Height > 272), 176, Height))
+```
+
+### 'Age' column
+The oldest person in the world died aged 122.
+```{r}
+all_participants %>% filter(Age > 122)
+all_participants %>% filter(ID=='23459' & Year == 1912)
+```
+In 1912 he was 24. Fix:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Age = ifelse((ID == '23459' & Age == 240), 24, Age))
+```
+
+### 'Weight' column
+Find the minimum weight. The 24-years Participant weighed 7 kg, but 
+```{r}
+all_participants %>% filter(Weight == min(Weight, na.rm = TRUE))
+all_participants %>% filter(ID=='68370', Age == 25)
+```
+This 'light' row does not provide us any additional information. We can remove it:
+```{r}
+all_participants <- all_participants %>% filter(!(Weight == 7 & ID == '68370'))
+```
+
+### 'Games' column
+There are some problems with seasons naming:
+
+```{r}
+all_participants %>% group_by(Games) %>%  summarise(n())
+```
+
+Fix it:
+```{r}
+all_participants <- all_participants %>% 
+  mutate(Games = ifelse((Games == '2000 Su' & !is.na(Games)), '2000 Summer', Games))
+all_participants <- all_participants %>% 
+  mutate(Games = ifelse((Games == '2004 Summe' & !is.na(Games)), '2004 Summer', Games))
+```
+
+
+
+
+### Others columns
+All is OK:
+
+```{r eval=FALSE, include=TRUE}
+all_participants %>% group_by(Medal) %>%  summarise()
+
+all_participants %>% group_by(Year) %>%  summarise()
+
+all_participants %>% group_by(Season) %>%  summarise()
+
+all_participants %>% group_by(City) %>%  summarise()
+
+all_participants %>% group_by(Event) %>%  summarise() 
+```
+
+
