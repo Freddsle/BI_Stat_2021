@@ -10,9 +10,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "C:/1/Activity/BioinformaticInstitute/BI_Stat_2021/BI_Stat_2021/olimpic_games/report")
-```
 
+```
 
 # Import and data checking
 
