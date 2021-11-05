@@ -10,6 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 6)
 
 ```
 
@@ -28,6 +29,13 @@ This library include all required libraries:\
 - **tidyr**, for data tidying.\
 - **readr**, for data import.\
 - **purrr**, for functional programming.\
+
+tidyverse 1.3.1:
+v ggplot2 3.3.3     v purrr   0.3.4
+v tibble  3.1.0     v dplyr   1.0.5
+v tidyr   1.1.3     v stringr 1.4.0
+v readr   1.4.0     v forcats 0.5.1
+
 
 ## Import .csv data
 For import all .csv file to one list, run:
@@ -139,7 +147,8 @@ f_names <- function(all_participants) {
 
 for (i in c(1:(ID[3] - ID[1])[1,1])){
   all_participants <- all_participants %>% 
-    mutate(Name = ifelse((ID == f_names(all_participants)), toString(i), Name))
+    mutate(Name = ifelse((ID == f_names(all_participants)) & !is.na(f_names(all_participants)),
+                         toString(i), Name))
 }
 
 ```
@@ -299,6 +308,53 @@ all_participants %>% group_by(Event) %>%  summarise()
 
 ```
 
+## Data standardization
+
+### The Height variable standardization
+
+```{r include=FALSE}
+all_participants <- all_participants %>%  
+  mutate(Height_z_scores = (Height - 
+                              mean(Height, na.rm = TRUE)) / sd(Height, na.rm = TRUE))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot_height <- ggplot(all_participants, aes(Height)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Height of athletes", x = 'Height, cm')
+
+plot_height_z <- ggplot(all_participants, aes(Height_z_scores)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Height of athletes", x = 'Standardized Height')
+
+gridExtra::grid.arrange(plot_height, plot_height_z, ncol=2)
+```
+
+
+### The Height variable min-max standardization
+
+```{r include=FALSE}
+all_participants <- all_participants %>%  
+  mutate(Height_min_max_scaled = (Height - 
+                                  min(Height, na.rm = TRUE)) / 
+                                 (max(Height, na.rm = TRUE) - 
+                                  min(Height, na.rm = TRUE)))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot_height_minmax <- ggplot(all_participants, aes(Height_min_max_scaled)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Height of athletes", x = '"Min-max" standardized Height')
+
+gridExtra::grid.arrange(plot_height, plot_height_minmax, ncol=2)
+
+```
+
+
+
 # Olympic statistics
 
 ## Youngest at the 1992 Olympics
@@ -327,8 +383,322 @@ sd_man <- all_participants %>% filter(Sex == 'M') %>%
 
 ```
 
-For men Height variable has **mean = `r round(mean_man[1,1,1], 2)`** and **standard deviation = `r round(sd_man[1,1,1], 2)`**
+For men Height variable has **mean = `r round(mean_man[1,1,1], 2)`** with **standard deviation = `r round(sd_man[1,1,1], 2)`**.
 
-For women Height variable has **mean = `r round(mean_woman[1,1,1], 2)`** and **standard deviation = `r round(sd_woman[1,1,1], 2)`**
+For women Height variable has **mean = `r round(mean_woman[1,1,1], 2)`** with **standard deviation = `r round(sd_woman[1,1,1], 2)`**.
 
-## 
+### Mean and standard deviation of Height variable for female participants at the 2000 Games
+
+```{r include=FALSE}
+mean_woman_2000 <- all_participants %>% filter(Sex == 'F', Year == 2000) %>% 
+  summarise(mean(Height, na.rm = TRUE))
+
+sd_woman_2000 <- all_participants %>% filter(Sex == 'F', Year == 2000) %>% 
+  summarise(sd(Height, na.rm = TRUE))
+```
+
+For women Height variable has **mean = `r sprintf("%.1f", round(mean_woman_2000[1,1,1], 1))`** with **standard deviation = `r sprintf("%.1f", round(sd_woman_2000[1,1,1], 1))`** at the 2000 Olympics.
+
+## Heaviest athlete in the 2006 Olympics
+
+```{r include=FALSE}
+heaviest_2006 <- all_participants %>% 
+  filter(Year == 2006) %>% 
+  filter(Weight == max(Weight, na.rm = TRUE))
+```
+
+The heaviest athlete in the 2006 Olympics participated in the **`r heaviest_2006 %>% select(Sport) %>% .[1,1,1]`** and had weight `r heaviest_2006 %>% select(Weight) %>% .[1,1,1]` kg.
+
+## Gold medals received by women from 1980 to 2010
+
+```{r include=FALSE}
+golds_1980_2010 <- all_participants %>% 
+  filter(Sex == 'F' & (Year >= 1980 & Year <= 2010) & Medal == 'Gold') 
+```
+
+Women received **`r golds_1980_2010 %>% summarise(n()) %>% .[1,1,1]` gold medals** from 1980 to 2010.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(golds_1980_2010, aes(y = Games)) +
+  geom_histogram(stat="count", alpha = 0.3, fill='Blue') +
+  geom_text(aes(label = ..count.., fontface = "bold"), stat = "count", position = position_stack(vjust = 0.5)) +
+  labs(x='Number of medals',
+       y='Games',
+       title="Number of Gold medals received by women from 1980 to 2010") + 
+  theme_set(theme_bw(base_size = 15))
+
+
+```
+
+## Number of participation times of athlete John Aalberg in the Olympic Games
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+john_games <- all_participants %>% filter(grepl('John Aalberg', Name))
+john_games %>% group_by(Year) %>% select(Name, Games) %>% mutate(N = n())%>% unique()
+```
+
+
+John Aalberg participated in Olympic games `r john_games %>% summarise(n()) %>% .[1,1,1]` times, `r john_games %>% filter(Games == '1992 Winter')%>% summarise(n()) %>% .[1,1,1]` times in the 1992 Winter Games and `r john_games %>% filter(Games == '1994 Winter')%>% summarise(n()) %>% .[1,1,1]` times in the 1994 Winter Games.
+
+## Age groups of participants in the 2008 Olympic Games
+
+The following boundaries were used to divide the participants into groups:\
+- group 0: Age < 15;\
+- group 1: Age 15-24;\
+- group 2: Age 25-34;\
+- group 3: Age 35-44;\
+- group 4: Age 45-55;\
+- group 5: Age > 55.
+
+Each participant was counted only once, according to their ID number.
+
+```{r include=FALSE}
+age_groups_2006 <- all_participants %>% 
+  filter(Year == 2008) %>% 
+  select(ID, Sex, Age) %>% 
+  distinct() %>% 
+  mutate(Age_group = NA) %>% 
+  mutate(Age_group = ifelse(Age < 15, '14 and less', Age_group)) %>% 
+  mutate(Age_group = ifelse(Age > 14 & Age < 25, '15-24', Age_group)) %>% 
+  mutate(Age_group = ifelse(Age > 24 & Age < 35, '25-34', Age_group)) %>% 
+  mutate(Age_group = ifelse(Age > 34 & Age < 45, '35-44', Age_group)) %>% 
+  mutate(Age_group = ifelse(Age > 44 & Age < 56, '45-55', Age_group)) %>% 
+  mutate(Age_group = ifelse(Age > 55, '56 and more', Age_group)) %>% 
+  filter(!is.na(Age_group))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+ggplot(age_groups_2006, aes(y = Age_group)) +
+  geom_histogram(stat="count", alpha = 0.3, fill = 'Orange') +
+  geom_text(aes(label = ..count.., fontface = "bold"), stat = "count", position = position_stack(vjust = 0.5)) +
+  labs(x='Number of participants',
+       y='Age group',
+       title="Number of participants in different age groups") + 
+  theme_set(theme_bw(base_size = 15))
+```
+
+Among the participants from 15 to 55 years old, the smallest group is the `r age_groups_2006 %>% filter(Age_group != '14 and less' & Age_group != '56 and more') %>% group_by(Age_group) %>% summarise(Group_size = n()) %>% filter(Group_size == min(Group_size)) %>% .[1,1,1]` age group, the most numerous is the `r age_groups_2006 %>% filter(Age_group != '14 and less' & Age_group != '56 and more') %>% group_by(Age_group) %>% summarise(Group_size = n()) %>% filter(Group_size == max(Group_size)) %>% .[1,1,1]` age group.
+
+## Сhanging of the number of sports in the 2002 Olympics from the 1994 Olympic
+
+
+The Olympic Games in 1994 and 2002 are the Winter Olympics. From 1994 to 2002, the number of Olympic winter sports increased.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sports_from_94_to_02 <- all_participants %>% 
+  filter(Year >= 1994 & Year <= 2002) %>% 
+  filter(Season == 'Winter') %>% 
+  select(Year, Season, Sport) %>% 
+  distinct()
+
+ggplot(sports_from_94_to_02, aes(y = Year)) +
+  geom_histogram(stat="count", alpha = 0.3, fill = 'Red') +
+  geom_text(aes(label = ..count.., fontface = "bold"), stat = "count", position = position_stack(vjust = 0.5)) +
+  labs(x='Number of sports',
+       y='Year',
+       title="Number of sports at the Winter Olympics 1994-2002") + 
+  theme_set(theme_bw(base_size = 15))
+
+sports_answer <- sports_from_94_to_02 %>% 
+  filter(Year == 2002 | Year == 1994) %>% 
+  group_by(Year)%>% summarise(n = n())
+
+min_year_sports <- sports_answer %>% filter(n == min(n)) %>% .[1,1,1]
+
+sports_answer <- sports_answer %>% 
+  mutate(direction = if_else(min_year_sports == 1994, 'increased', 'decreased'))
+
+```
+
+The number of sports in 1994 was `r sports_answer %>% filter(Year == 1994) %>% .[1,2,1]`. The number of sports in 2002 was `r sports_answer %>% filter(Year == 2002) %>% .[1,2,1]`.
+
+The number of sports at the 2002 Olympics, compared to 1994, has **`r sports_answer[1,3,1]` by `r max(sports_answer[,2,]) - min(sports_answer[,2,])` sports, or `r round((max(sports_answer[,2,]) / min(sports_answer[,2,]) - 1) * 100, 2)`%**.
+
+
+## Top countries for each type of medal for the winter and summer Olympiads separately 
+### Winter Games
+
+```{r include=FALSE}
+winter_medals <- all_participants %>% 
+  mutate(Team = ifelse(Team == 'Unified Team', 'Soviet Union', Team)) %>% 
+  filter(Season == 'Winter' & !is.na(Medal)) %>% 
+  mutate(Team = sub('-{1}[[:digit:]]{1}$', '', Team))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+winter_medals %>% 
+  group_by(Team) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 20) %>% 
+  ggplot(aes(y = reorder(Team, desc(n)), x = n)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Blue') +
+  geom_text(aes(label = n, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Number of medals  (all types) in different countries',
+       y='Сountry',
+       title="Medals in different countries (if more than 20)",
+       subtitle = 'Winter Games. Country name when receiving') + 
+  theme_set(theme_bw())
+
+```
+
+
+Top 3 countries with the most Gold medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+winter_medals %>% 
+  filter(Medal == 'Gold') %>% 
+  group_by(Team) %>% 
+  summarise(Gold_Medals = n()) %>% 
+  arrange(-Gold_Medals) %>% 
+  top_n(n=3)
+```
+
+Top 3 countries with the most Silver medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+winter_medals %>% 
+  filter(Medal == 'Silver') %>% 
+  group_by(Team) %>% 
+  summarise(Silver_Medals = n()) %>%
+  arrange(-Silver_Medals) %>% 
+  top_n(n=3)
+```
+
+Top 3 countries with the most Bronze medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+winter_medals %>% 
+  filter(Medal == 'Bronze') %>% 
+  group_by(Team) %>% 
+  summarise(Bronze_Medals = n()) %>%
+  arrange(-Bronze_Medals) %>% 
+  top_n(n=3)
+```
+
+### Summer Games
+
+
+```{r include=FALSE}
+summer_medals <- all_participants %>% 
+  mutate(Team = ifelse(Team == 'Unified Team', 'Soviet Union', Team)) %>% 
+  filter(Season == 'Summer' & !is.na(Medal)) %>% 
+  mutate(Team = sub('-{1}[[:digit:]]{1}$', '', Team))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+summer_medals %>% 
+  group_by(Team) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 200) %>% 
+  ggplot(aes(y = reorder(Team, desc(n)), x = n)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Blue') +
+  geom_text(aes(label = n, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Number of medals (all types) in different countries',
+       y='Сountry',
+       title="Medals in different countries (if more than 200)",
+       subtitle = 'Summer Games. Country name when receiving') + 
+  theme_set(theme_bw())
+
+```
+
+*Medals won by the Unified Team in the 1992 Olympics counted as medals of the Soviet union*.
+
+Top 3 countries with the most Gold medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summer_medals %>% 
+  filter(Medal == 'Gold') %>% 
+  group_by(Team) %>% 
+  summarise(Gold_Medals = n()) %>% 
+  arrange(-Gold_Medals) %>% 
+  top_n(n=3)
+```
+
+Top 3 countries with the most Silver medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summer_medals %>% 
+  filter(Medal == 'Silver') %>% 
+  group_by(Team) %>% 
+  summarise(Silver_Medals = n()) %>%
+  arrange(-Silver_Medals) %>% 
+  top_n(n=3)
+```
+
+Top 3 countries with the most Bronze medals in Winter games:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summer_medals %>% 
+  filter(Medal == 'Bronze') %>% 
+  group_by(Team) %>% 
+  summarise(Bronze_Medals = n()) %>%
+  arrange(-Bronze_Medals) %>% 
+  top_n(n=3)
+```
+
+## Comparsion of the height, weight and ages of men and women who competed in the Winter Olympics
+
+Sample size large enough to treat the distribution of height, weight and age as normally distributed values.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+task_14 <- all_participants %>% 
+  filter(Season == 'Winter') %>% 
+  select(Height, Weight, Age, Sex)
+```
+
+
+### Height comparison
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(task_14, aes(Height, color=Sex)) +
+  geom_density() +
+  scale_color_hue(labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Height of athletes")
+```
+
+Welch Two Sample t-test (two sided) was performed. Alternative hypothesis - the athletes height depends on the sex. 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+t_test_height <- t.test(Height~Sex, data = task_14)
+```
+
+The value of the t-statistic is **`r round(t_test_height$statistic, 3)`** with **`r round(t_test_height$parameter, 1)`** degrees of freedom. \
+Welch Two Sample t-test showed that there was a significant difference between the male athletes height compared with female athletes height  (p-value = **`r t_test_height$p.value` < 2.2 10^-16 **).
+
+### Weight comparison
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(task_14, aes(Weight, color=Sex)) +
+  geom_density() +
+  scale_color_hue(labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Weight of athletes")
+```
+
+Welch Two Sample t-test (two sided) was performed. Alternative hypothesis - the athletes weight depends on the sex. 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+t_test_weight <- t.test(Weight~Sex, data = task_14)
+```
+
+The value of the t-statistic is **`r round(t_test_weight$statistic, 3)`** with **`r round(t_test_weight$parameter, 1)`** degrees of freedom. \
+Welch Two Sample t-test showed that there was a significant difference between the male athletes weight compared with female athletes weight  (p-value = **`r t_test_weight$p.value` < 2.2 10^-16 **).
+
+### Age comparison
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(task_14, aes(Age, color=Sex)) +
+  geom_density() +
+  scale_color_hue(labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Age of athletes")
+```
+
+Welch Two Sample t-test (two sided) was performed. Alternative hypothesis - the athletes age depends on the sex. 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+t_test_age <- t.test(Age~Sex, data = task_14)
+```
+
+The value of the t-statistic is **`r round(t_test_age$statistic, 3)`** with **`r round(t_test_age$parameter, 1)`** degrees of freedom. \
+Welch Two Sample t-test showed that there was a significant difference between the male athletes age compared with female athletes age  (p-value = **`r t_test_age$p.value` < 2.2 10^-16 **).
+
+
+
