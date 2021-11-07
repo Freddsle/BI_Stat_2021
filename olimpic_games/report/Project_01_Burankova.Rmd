@@ -1225,6 +1225,9 @@ medals_per_country %>%
   theme_set(theme_bw())
 ```
 
+For all types of medals, the average number of medals per participant per country is `r medals_per_country %>% summarise(mean = mean(medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r medals_per_country %>% summarise(sd(medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
+
+
 #### Gold medals per team member
 
 Top 20 countries with the most Gold medals per competitor:
@@ -1243,6 +1246,8 @@ team_and_gold_medals %>% group_by(Country_NOC) %>%
        subtitle = 'The name of the country in the year of receiving') + 
   theme_set(theme_bw())
 ```
+
+For Gold medals, the average number of medals per participant per country is `r team_and_gold_medals %>% group_by(Country_NOC) %>% summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% summarise(mean(gold_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_gold_medals %>% group_by(Country_NOC) %>% summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% summarise(sd(gold_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
 #### Silver medals per team member
 
@@ -1263,6 +1268,7 @@ team_and_silver_medals %>% group_by(Country_NOC) %>%
   theme_set(theme_bw())
 ```
 
+For Silver medals, the average number of medals per participant per country is `r team_and_silver_medals %>% group_by(Country_NOC) %>% summarize(silver_medals_per_member = round(mean(number_silver_medals / team_members), 3)) %>% summarise(mean(silver_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_silver_medals %>% group_by(Country_NOC) %>% summarize(silver_medals_per_member = round(mean(number_silver_medals / team_members), 3)) %>% summarise(sd(silver_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
 #### Bronze medals per team member
 
@@ -1283,6 +1289,7 @@ team_and_bronze_medals %>% group_by(Country_NOC) %>%
   theme_set(theme_bw())
 ```
 
+For Bronze medals, the average number of medals per participant per country is `r team_and_bronze_medals %>% group_by(Country_NOC) %>% summarize(bronze_medals_per_member = round(mean(number_bronze_medals / team_members), 3)) %>% summarise(mean(bronze_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_bronze_medals %>% group_by(Country_NOC) %>% summarize(bronze_medals_per_member = round(mean(number_bronze_medals / team_members), 3)) %>% summarise(sd(bronze_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
 ## Does the number of male and female participants differ in teams at the Winter Olympics?
 
@@ -1318,13 +1325,13 @@ Shapiro-Wilk normality test for men in teams p-value = `r round(winter_m$p.value
 
 The Mann-Whitney U tests the null hypothesis. An alternative hypothesis is that the number of male and female participants differ in teams at the Winter Olympics. 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 wilcox_winter <- wilcox.test(team_members~Sex,
                              data = winter_participants, 
                              alternative = "two.sided")
 ```
 
-A Mann-Whitney U test showed that there was a significant difference (W = **`r round(wilcox_winter$statistic, 3)`**, p = **`r wilcox_winter$p.value`**) between the number of male and female participants in teams at the Winter Olympics.
+A Mann-Whitney U test showed that there was a significant difference (W = **`r round(wilcox_winter$statistic, 3)`** ,  p = **`r wilcox_winter$p.value`**) between the number of male and female participants in teams at the Winter Olympics.
 
 ```{r echo=FALSE}
 winter_participants %>% 
@@ -1350,7 +1357,7 @@ season_height <- all_participants %>%
 season_number <- season_height %>% group_by(Season) %>% summarise(n = n())
 ```
 
-We have a sufficient number of observations (`r season_number[1,2,1]` for `r season_number[1,1,1]` season and `r season_number[2,2,1]` for `r season_number[2,1,1]`) to consider the distribution ofHeight variable of female athletes as a normal distribution, which can be seen on the graph.
+We have a sufficient number of observations (`r season_number[1,2,1]` for `r season_number[1,1,1]` season and `r season_number[2,2,1]` for `r season_number[2,1,1]`) to consider the distribution of Height variable of female athletes as a normal distribution, which can be seen on the graph.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 season_height  %>% 

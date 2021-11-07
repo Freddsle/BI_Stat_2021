@@ -697,6 +697,10 @@ medals_per_country %>%
        subtitle = 'The name of the country in the year of receiving') + 
   theme_set(theme_bw())
 
+medals_per_country %>% summarise(sd(medals_per_member)) %>% .[1,1,1] %>% round(., 4)
+
+
+
 ## gold medals
 
 gold_medals_of_team <- all_participants %>%
@@ -722,6 +726,9 @@ team_and_gold_medals %>% group_by(Country_NOC) %>%
        title="Medals per team member in different countries (top 20)",
        subtitle = 'The name of the country in the year of receiving') + 
   theme_set(theme_bw())
+
+team_and_gold_medals %>% group_by(Country_NOC) %>% summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% summarise(sd(gold_medals_per_member)) %>% .[1,1,1] %>% round(., 4)
+
 
 ## Silver medals per participant
 
