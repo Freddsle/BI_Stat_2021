@@ -244,7 +244,7 @@ all_participants %>%
 # Round your answer to the first character after dot. (2 points)
 
 mean_woman_2000 <- all_participants %>% 
-  filter(Sex == 'F'& Year == 2000) %>% 
+  filter(Sex == 'F'& Year == '2000' & Sport == 'Tennis') %>% 
   select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
   distinct() %>% 
   summarise(mean(Height, na.rm = TRUE))
@@ -297,7 +297,7 @@ ggplot(golds_1980_2010, aes(y = Games)) +
   labs(x='Number of medals',
        y='Games',
        title="Number of Gold medals received by women from 1980 to 2010") + 
-  theme_set(theme_bw(base_size = 15))
+  theme_set(theme_bw())
 
 
 # How many times has athlete John Aalberg competed in the Olympics over the years? (2 points)
@@ -935,3 +935,16 @@ ggplot(season_height, aes(y = Height, x = Season)) +
   scale_fill_discrete(name = "Season") +
   theme_bw() +
   labs(title="Height of women-athletes in different seasons")
+
+# Conclusion
+
+all_participants %>% summarise(min(Year, na.rm=TRUE)) %>% .[1,1,1]
+
+
+winter_medals_top <- winter_medals %>% filter(!is.na(Medal)) %>% group_by(Medal, Country_NOC) %>% summarise(Medals = n()) %>% arrange(-Medals) %>% top_n(n=3)
+
+winter_medals_top[winter_medals_top$Medal == 'Gold',][2,2,1]
+
+summer_medals_top <- summer_medals %>% filter(!is.na(Medal)) %>% group_by(Medal, Country_NOC) %>% summarise(Medals = n()) %>% arrange(-Medals) %>% top_n(n=3)
+
+

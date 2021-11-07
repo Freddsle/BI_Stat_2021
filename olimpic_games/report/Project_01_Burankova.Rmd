@@ -383,8 +383,6 @@ gridExtra::grid.arrange(plot_height, plot_height_minmax, ncol=2)
 
 ```
 
-
-
 # Olympic statistics
 
 ## Youngest at the 1992 Olympics
@@ -431,7 +429,7 @@ For men Height variable has **mean = `r round(mean_man[1,1,1], 2)`** with **stan
 
 For women Height variable has **mean = `r round(mean_woman[1,1,1], 2)`** with **standard deviation = `r round(sd_woman[1,1,1], 2)`**.
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 all_participants %>% 
   filter(!is.na(Sex) & !is.na(Height)) %>%   
   select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
@@ -449,29 +447,27 @@ all_participants %>%
 ```
 
 
-
-### Mean and standard deviation of Height variable for female participants at the 2000 Games
+### Mean and standard deviation of Height variable for female tennis players at the 2000 Games
 
 ```{r include=FALSE}
 mean_woman_2000 <- all_participants %>% 
-  filter(Sex == 'F'& Year == 2000) %>% 
+  filter(Sex == 'F'& Year == 2000 & Sport == 'Tennis') %>% 
   select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
   distinct() %>% 
   summarise(mean(Height, na.rm = TRUE))
 
 sd_woman_2000 <- all_participants %>% 
-  filter(Sex == 'F' & Year == 2000) %>% 
+  filter(Sex == 'F' & Year == 2000 & Sport == 'Tennis') %>% 
   select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
   distinct() %>% 
   summarise(sd(Height, na.rm = TRUE))
 ```
 
-For women Height variable has **mean = `r sprintf("%.1f", round(mean_woman_2000[1,1,1], 1))`** with **standard deviation = `r sprintf("%.1f", round(sd_woman_2000[1,1,1], 1))`** at the 2000 Olympics.
+For women tennis players Height variable has **mean = `r sprintf("%.1f", round(mean_woman_2000[1,1,1], 1))`** with **standard deviation = `r sprintf("%.1f", round(sd_woman_2000[1,1,1], 1))`** at the 2000 Olympics.
 
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 all_participants %>% 
-  filter(Sex == 'F' & !is.na(Height) & Year == 2000) %>%   
+  filter(Sex == 'F' & !is.na(Height) & Year == 2000 & Sport == 'Tennis') %>%   
   select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
   distinct() %>% 
   ggplot(aes(y = Height, x = Sex)) +
@@ -498,6 +494,7 @@ The heaviest athlete in the 2006 Olympics participated in the **`r heaviest_2006
 
 ## Gold medals received by women from 1980 to 2010
 
+
 ```{r include=FALSE}
 golds_1980_2010 <- all_participants %>% 
   filter(Sex == 'F' & (Year >= 1980 & Year <= 2010) & Medal == 'Gold') 
@@ -507,15 +504,15 @@ Women received **`r golds_1980_2010 %>% summarise(n()) %>% .[1,1,1]` gold medals
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(golds_1980_2010, aes(y = Games)) +
-  geom_histogram(stat="count", alpha = 0.3, fill='Blue') +
+  geom_histogram(stat="count", fill='Blue', alpha = 0.3) +
   geom_text(aes(label = ..count.., fontface = "bold"), stat = "count", position = position_stack(vjust = 0.5)) +
   labs(x='Number of medals',
        y='Games',
        title="Number of Gold medals received by women from 1980 to 2010") + 
-  theme_set(theme_bw(base_size = 15))
-
+  theme_set(theme_bw())
 
 ```
+
 
 ## Number of participation times of athlete John Aalberg in the Olympic Games
 
@@ -716,7 +713,9 @@ summer_medals %>%
   top_n(n=3)
 ```
 
-## Comparsion of the height, weight and ages of men and women who competed in the Winter Olympics
+## Comparisons and hypotheses
+
+### Comparsion of the height, weight and ages of men and women who competed in the Winter Olympics
 
 Sample size large enough to treat the distribution of height, weight and age as normally distributed values.
 
@@ -729,7 +728,7 @@ task_14 <- all_participants %>%
 ```
 
 
-### Height comparison
+#### Height comparison
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(task_14, aes(Height, color=Sex)) +
@@ -757,7 +756,7 @@ ggplot(task_14, aes(y = Height, x = Sex)) +
 ```
 
 
-### Weight comparison
+#### Weight comparison
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -775,7 +774,7 @@ t_test_weight <- t.test(Weight~Sex, data = task_14)
 ```
 
 The value of the t-statistic is **`r round(t_test_weight$statistic, 3)`** with **`r round(t_test_weight$parameter, 1)`** degrees of freedom. \
-Welch Two Sample t-test showed that there was a significant difference between the male athletes weight compared with female athletes weight  (p-value = **`r t_test_weight$p.value` < 2.2 10^-16 **).
+Welch Two Sample t-test showed that there was a significant difference between the male athletes weight compared with female athletes weight  (p-value = **`r t_test_weight$p.value` < 2.2 * 10^-16 **).
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -787,7 +786,7 @@ ggplot(task_14, aes(y = Weight, x = Sex)) +
 ```
 
 
-### Age comparison
+#### Age comparison
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(task_14, aes(Age, color=Sex)) +
@@ -804,7 +803,7 @@ t_test_age <- t.test(Age~Sex, data = task_14)
 ```
 
 The value of the t-statistic is **`r round(t_test_age$statistic, 3)`** with **`r round(t_test_age$parameter, 1)`** degrees of freedom. \
-Welch Two Sample t-test showed that there was a significant difference between the male athletes age compared with female athletes age  (p-value = **`r t_test_age$p.value` < 2.2 10^-16 **).
+Welch Two Sample t-test showed that there was a significant difference between the male athletes age compared with female athletes age  (p-value = **`r t_test_age$p.value` < 2.2 * 10^-16 **).
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(task_14, aes(y = Age, x = Sex)) +
@@ -815,9 +814,9 @@ ggplot(task_14, aes(y = Age, x = Sex)) +
 ```
 
 
-## Do we have any reason to believe that variables Team and Medal might be interrelated?
+### Do we have any reason to believe that variables Team and Medal might be interrelated?
 
-### Some information about Team and Medal
+#### Some information about Team and Medal
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 medals_of_team <- all_participants %>%
@@ -847,7 +846,7 @@ Each team won an average of `r round(mean(team_and_medals$number_medals), 2)` me
 
 During the observation period, each team received an average of `r round(team_and_medals %>% group_by(Country_NOC) %>% summarize(sum_medals = sum(number_medals)) %>%   summarise(mean(sum_medals)) %>% .[1,1,1], 2)` medals (with a standard deviation of `r round(team_and_medals %>% group_by(Country_NOC) %>% summarize(sum_medals = sum(number_medals)) %>%   summarise(sd(sum_medals)) %>% .[1,1,1], 2)`).
 
-### Correlation
+#### Correlation
 
 Hypothesis - there is a relationship between the team and the number of medals through the size of the team, that is, there is a relationship between the size of a team and the number of medals it won.
 
@@ -935,7 +934,7 @@ all_seasons_medals %>%
   theme_set(theme_bw())
 ```
 
-### Correlation for diffrenet medal types
+#### Correlation for diffrenet medal types
 
 The same correlation analysis was performed for Gold, Silver, Bronze and "No medal" medals separately.
 
@@ -972,7 +971,7 @@ team_and_bronze_medals <- participants_of_team %>%
 ```
 
 
-#### Gold medals
+##### Gold medals
 
 Hypothesis - there is a relationship between the team and the number of Gold medals through the size of the team, that is, there is a relationship between the size of a team and the number of Gold medals it won.
 
@@ -1027,7 +1026,7 @@ corr_member_gold_medals <- cor.test(team_and_gold_medals$team_members,
 
 A Kendall's rank correlation tau test showed that there is a marked degree of positive correlation (z = **`r round(corr_member_gold_medals$statistic, 3)`**, tau = **`r round(corr_member_gold_medals$estimate, 2)`**, and p = **`r corr_member_gold_medals$p.value`**<  2.2 * 10^(-16)) between the number of team members and the number of team Gold medals.
 
-#### Silver medals
+##### Silver medals
 
 Hypothesis - there is a relationship between the team and the number of Silver medals through the size of the team, that is, there is a relationship between the size of a team and the number of Silver medals it won.
 
@@ -1081,7 +1080,7 @@ corr_member_silver_medals <- cor.test(team_and_silver_medals$team_members,
 
 A Kendall's rank correlation tau test showed that there is a marked degree of positive correlation (z = **`r round(corr_member_silver_medals$statistic, 3)`**, tau = **`r round(corr_member_silver_medals$estimate, 2)`**, and p = **`r corr_member_silver_medals$p.value`** < 2.2 * 10^(-16)) between the number of team members and the number of team Silver medals.
 
-#### Bronze medals
+##### Bronze medals
 
 Hypothesis - there is a relationship between the team and the number of Bronze medals through the size of the team, that is, there is a relationship between the size of a team and the number of Bronze medals it won.
 
@@ -1136,7 +1135,7 @@ corr_member_bronze_medals <- cor.test(team_and_bronze_medals$team_members,
 A Kendall's rank correlation tau test showed that there is a marked degree of positive correlation (z = **`r round(corr_member_bronze_medals$statistic, 3)`**, tau = **`r round(corr_member_bronze_medals$estimate, 2)`**, and p = **`r corr_member_bronze_medals$p.value`** < 2.2 * 10^(-16)) between the number of team members and the number of team Bronze medals.
 
 
-#### No medals
+##### No medals
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 no_medals_of_team <- all_participants %>%
@@ -1201,7 +1200,7 @@ corr_member_no_medals <- cor.test(team_and_no_medals$team_members,
 A Kendall's rank correlation tau test showed that there is a strong positive correlation (z = **`r round(corr_member_no_medals$statistic, 3)`**, tau = **`r round(corr_member_no_medals$estimate, 2)`**, and p = **`r corr_member_no_medals$p.value`** < 2.2 * 10^(-16)) between the number of team members and the number of their losses.
 
 
-### Medals per participant
+#### Medals per participant
 
 To study the average number of medals received by each team each year without the influence of team size, we can calculate the average ratio of medals received to team size for each team.
 
@@ -1228,7 +1227,7 @@ medals_per_country %>%
 For all types of medals, the average number of medals per participant per country is `r medals_per_country %>% summarise(mean = mean(medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r medals_per_country %>% summarise(sd(medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
 
-#### Gold medals per team member
+##### Gold medals per team member
 
 Top 20 countries with the most Gold medals per competitor:
 
@@ -1249,7 +1248,7 @@ team_and_gold_medals %>% group_by(Country_NOC) %>%
 
 For Gold medals, the average number of medals per participant per country is `r team_and_gold_medals %>% group_by(Country_NOC) %>% summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% summarise(mean(gold_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_gold_medals %>% group_by(Country_NOC) %>% summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% summarise(sd(gold_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
-#### Silver medals per team member
+##### Silver medals per team member
 
 Top 20 countries with the most Silver medals per competitor:
 
@@ -1270,7 +1269,7 @@ team_and_silver_medals %>% group_by(Country_NOC) %>%
 
 For Silver medals, the average number of medals per participant per country is `r team_and_silver_medals %>% group_by(Country_NOC) %>% summarize(silver_medals_per_member = round(mean(number_silver_medals / team_members), 3)) %>% summarise(mean(silver_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_silver_medals %>% group_by(Country_NOC) %>% summarize(silver_medals_per_member = round(mean(number_silver_medals / team_members), 3)) %>% summarise(sd(silver_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
-#### Bronze medals per team member
+##### Bronze medals per team member
 
 Top 20 countries with the most bronze medals per competitor:
 
@@ -1291,7 +1290,7 @@ team_and_bronze_medals %>% group_by(Country_NOC) %>%
 
 For Bronze medals, the average number of medals per participant per country is `r team_and_bronze_medals %>% group_by(Country_NOC) %>% summarize(bronze_medals_per_member = round(mean(number_bronze_medals / team_members), 3)) %>% summarise(mean(bronze_medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r team_and_bronze_medals %>% group_by(Country_NOC) %>% summarize(bronze_medals_per_member = round(mean(number_bronze_medals / team_members), 3)) %>% summarise(sd(bronze_medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
 
-## Does the number of male and female participants differ in teams at the Winter Olympics?
+### Does the number of male and female participants differ in teams at the Winter Olympics?
 
 Each participant is counted only 1 time per game for each team.
 
@@ -1320,7 +1319,6 @@ winter_m <- shapiro.test(winter_participants$team_members[winter_participants$Se
 winter_f <- shapiro.test(winter_participants$team_members[winter_participants$Sex == 'F'])
 ```
 
-
 Shapiro-Wilk normality test for men in teams p-value = `r round(winter_m$p.value, 3)` < 2.2 * 10^(-16) for team members distribution (with W = `r round(winter_m$statistic, 3)` and the number of observations - `r length(winter_participants$team_members[winter_participants$Sex == 'M'])`), and p-value = `r round(winter_f$p.value, 3)` < 2.2 * 10^(-16) for team participants without medals distribution (with W = `r round(winter_f$statistic, 3)` and the number of observations - `r length(winter_participants$team_members[winter_participants$Sex == 'F'])`).
 
 The Mann-Whitney U tests the null hypothesis. An alternative hypothesis is that the number of male and female participants differ in teams at the Winter Olympics. 
@@ -1346,7 +1344,7 @@ winter_participants %>%
        y='Sex')
 ```
 
-##  Is there a difference in the height of women at the winter and summer games?
+###  Is there a difference in the height of women at the winter and summer games?
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 season_height <- all_participants %>% 
@@ -1367,7 +1365,6 @@ season_height  %>%
   labs(title="Height of women-athletes in different seasons")
 ```
 
-
 Welch Two Sample t-test (two sided) was performed. Alternative hypothesis - there is a difference in the height of female athletes participating in the winter and summer games.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -1387,6 +1384,64 @@ ggplot(season_height, aes(y = Height, x = Season)) +
   labs(title="Height of women-athletes in different seasons")
 ```
 
+# Conclusion
+
+Data about the Olympic Games from  **`r all_participants %>% summarise(min(Year, na.rm=TRUE)) %>% .[1,1,1]` year to `r all_participants %>% summarise(max(Year, na.rm=TRUE)) %>% .[1,1,1]`** year was used. 
+
+Invalid values in the data have been corrected. There are `r nrow(all_participants)` rows and `r ncol(all_participants)` variables in the data.
+
+The Height variable was standardized in two ways, including min-max standardization.
+
+The number of teams (countries) participating in the Olympic Games from `r all_participants %>% summarise(min(Year, na.rm=TRUE)) %>% .[1,1,1]` to `r all_participants %>% summarise(max(Year, na.rm=TRUE)) %>% .[1,1,1]` is **`r team_and_medals %>% group_by(Country_NOC) %>% summarise(n()) %>% summarise(n()) %>% .[1,1,1]`**. Team has an average of **`r round(mean(team_and_medals$team_members), 0)`** participants (with a standard deviation of `r round(sd(team_and_medals$team_members), 2)`) yearly. Each team won an average of **`r round(mean(team_and_medals$number_medals), 2)`** medals of any type (with a standard deviation of `r round(sd(team_and_medals$number_medals), 2)`)  yearly.
+
+Some statistics about the participants in the Olympic Games:
+- the youngest athletes at the 1992 Olympics is **`r youngest_men_1992[1,4,1]`** years for men, and **`r youngest_woman_1992[1,4,1]`** years for women.\
+- Height variable has:\
+  - **mean = `r round(mean_man[1,1,1], 2)`** with **standard deviation = `r round(sd_man[1,1,1], 2)`** for men;\
+  - **mean = `r round(mean_woman[1,1,1], 2)`** with **standard deviation = `r round(sd_woman[1,1,1], 2)`** for women .
+
+- for women tennis players Height variable has **mean = `r sprintf("%.1f", round(mean_woman_2000[1,1,1], 1))`** with **standard deviation = `r sprintf("%.1f", round(sd_woman_2000[1,1,1], 1))`** at the 2000 Olympics.\
+- the heaviest athlete in the 2006 Olympics participated in the **`r heaviest_2006 %>% select(Sport) %>% .[1,1,1]`** and had weight `r heaviest_2006 %>% select(Weight) %>% .[1,1,1]` kg.\
+- women received **`r golds_1980_2010 %>% summarise(n()) %>% .[1,1,1]` gold medals** from 1980 to 2010.\
+- John Aalberg participated in Olympic games `r john_games %>% summarise(n()) %>% .[1,1,1]` times.
+
+- Among the participants from 15 to 55 years old:\
+  - the smallest group is the `r age_groups_2006 %>% filter(Age_group != '14 and less' & Age_group != '56 and more') %>% group_by(Age_group) %>% summarise(Group_size = n()) %>% filter(Group_size == min(Group_size)) %>% .[1,1,1]` age group;\
+  - the most numerous is the `r age_groups_2006 %>% filter(Age_group != '14 and less' & Age_group != '56 and more') %>% group_by(Age_group) %>% summarise(Group_size = n()) %>% filter(Group_size == max(Group_size)) %>% .[1,1,1]` age group.
+
+- the number of sports at the 2002 Olympics, compared to 1994, has **`r sports_answer[1,3,1]` by `r max(sports_answer[,2,]) - min(sports_answer[,2,])` sports, or `r round((max(sports_answer[,2,]) / min(sports_answer[,2,]) - 1) * 100, 2)`%**.
+
+For all types of medals, the **average number of medals per participant per country** is `r medals_per_country %>% summarise(mean = mean(medals_per_member)) %>% .[1,1,1] %>% round(., 4)` (standard deviation `r medals_per_country %>% summarise(sd(medals_per_member)) %>% .[1,1,1] %>% round(., 4)`).
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+winter_medals_top <- winter_medals %>% filter(!is.na(Medal)) %>% group_by(Medal, Country_NOC) %>% summarise(Medals = n()) %>% arrange(-Medals) %>% top_n(n=3)
+
+summer_medals_top <- summer_medals %>% filter(!is.na(Medal)) %>% group_by(Medal, Country_NOC) %>% summarise(Medals = n()) %>% arrange(-Medals) %>% top_n(n=3)
+```
 
 
+Top 3 countries with the most medals in **Winter Games**:\
+- **Gold** medals: `r winter_medals_top[winter_medals_top$Medal == 'Gold',][1,2,1]`, `r winter_medals_top[winter_medals_top$Medal == 'Gold',][2,2,1]` and `r winter_medals_top[winter_medals_top$Medal == 'Gold',][3,2,1]`;\
+- **Silver** medals: `r winter_medals_top[winter_medals_top$Medal == 'Silver',][1,2,1]`, `r winter_medals_top[winter_medals_top$Medal == 'Silver',][2,2,1]` and `r winter_medals_top[winter_medals_top$Medal == 'Silver',][3,2,1]`;\
+- **Bronze** medals: `r winter_medals_top[winter_medals_top$Medal == 'Bronze',][1,2,1]`, `r winter_medals_top[winter_medals_top$Medal == 'Bronze',][2,2,1]` and `r winter_medals_top[winter_medals_top$Medal == 'Bronze',][3,2,1]`.
+
+Top 3 countries with the most medals in **Summer** **Games**:\
+- **Gold** medals: `r summer_medals_top[summer_medals_top$Medal == 'Gold',][1,2,1]`, `r summer_medals_top[summer_medals_top$Medal == 'Gold',][2,2,1]` and `r summer_medals_top[summer_medals_top$Medal == 'Gold',][3,2,1]`;\
+- **Silver** medals: `r summer_medals_top[summer_medals_top$Medal == 'Silver',][1,2,1]`, `r summer_medals_top[summer_medals_top$Medal == 'Silver',][2,2,1]` and `r summer_medals_top[summer_medals_top$Medal == 'Silver',][3,2,1]`;\
+- **Bronze** medals: `r summer_medals_top[summer_medals_top$Medal == 'Bronze',][1,2,1]`, `r summer_medals_top[summer_medals_top$Medal == 'Bronze',][2,2,1]` and `r summer_medals_top[summer_medals_top$Medal == 'Bronze',][3,2,1]`.
+
+The following hypotheses were subject to and confirmed by statistical tests:\
+- there was a significant difference between **the male athletes height compared with female athletes height**;\
+- there was a significant difference between **the male athletes weight compared with female athletes weight**;\
+- there was a significant difference between **the male athletes age compared with female athletes age**;\
+- there was a significant difference between **the number of male and female participants in teams at the Winter Olympics**;\
+- there was a significant difference between **the the height of female athletes participating in the winter or summer games**.
+
+
+**Teams and Medals**:\
+- there is a **strong positive correlation** between the number of team members and the number of their losses;\
+- there is a **marked degree of positive correlation** between the number of team members and the number of team medals:\
+    - there is a marked degree of positive correlation between the number of team members and the number of team Gold medals;\
+    - there is a marked degree of positive correlation between the number of team members and the number of team Silver medals;\
+    - there is a marked degree of positive correlation between the number of team members and the number of team Bronze medals;
 
