@@ -8,6 +8,9 @@ all_participants <-
   list.files(path = "../data/", pattern = "*.csv", full.names = TRUE) %>% 
   map_df(~read_csv(.))
 
+nrow(all_participants)
+ncol(all_participants)
+
 #Check Sex column
 all_participants %>% filter(!Sex %in% c('F', 'M', NA))
 all_participants %>% filter(ID == '79609' | ID == '79630')
@@ -168,9 +171,11 @@ all_participants <- all_participants %>%
 
 all_participants %>% 
   group_by(Country_NOC) %>% 
-  filter(!is.na(Country_NOC)) %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(n = n()) %>% 
-  arrange(n)
+  arrange(-n)
+
 
 #Age of the youngest athletes of both genders at the 1992 Olympics
 
@@ -186,36 +191,88 @@ youngest_woman_1992[1,4,1]
 #Рассчитайте среднее значение и стандартное отклонение переменной Height для
 #спортсменов каждого пола. (2 балла)
 
-mean_woman <- all_participants %>% filter(Sex == 'F') %>% 
+mean_woman <- all_participants %>% 
+  filter(Sex == 'F') %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(mean(Height, na.rm = TRUE))
+
 mean_woman[1,1,1]
 
-sd_woman <- all_participants %>% filter(Sex == 'F') %>% 
+sd_woman <- all_participants %>% 
+  filter(Sex == 'F') %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(sd(Height, na.rm = TRUE))
 sd_woman[1,1,1]
 
 
-mean_man <- all_participants %>% filter(Sex == 'M') %>% 
+mean_man <- all_participants %>% 
+  filter(Sex == 'M') %>%   
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(mean(Height, na.rm = TRUE))
+
 round(mean_man[1,1,1], 2)
 
-sd_man <- all_participants %>% filter(Sex == 'M') %>% 
+sd_man <- all_participants %>% 
+  filter(Sex == 'M') %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(sd(Height, na.rm = TRUE))
+
 sd_man[1,1,1]
 
+
+all_participants %>% 
+  filter(!is.na(Sex) & !is.na(Height)) %>%   
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
+  ggplot(aes(y = Height, x = Sex)) +
+  geom_boxplot(na.rm = TRUE, aes(fill = factor(Sex))) +
+  stat_summary(na.rm = TRUE, fun=mean, colour="darkred", geom="point", 
+               size=3) +
+  stat_summary(na.rm = TRUE, fun=mean, geom="text", 
+                 vjust=-0.7, aes(label=round(..y.., digits=1))) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Height of athletes",
+       subtitle = 'Mean are marked on the graph')
 
 # Calculate the mean and standard deviation of the Height variable for
 # tennis players (sex = F) at the 2000 Olympics. 
 # Round your answer to the first character after dot. (2 points)
 
-mean_woman_2000 <- all_participants %>% filter(Sex == 'F'& Year == 2000) %>% 
+mean_woman_2000 <- all_participants %>% 
+  filter(Sex == 'F'& Year == 2000) %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(mean(Height, na.rm = TRUE))
+
 sprintf("%.1f", round(mean_woman_2000[1,1,1], 1))
 
-sd_woman_2000 <- all_participants %>% filter(Sex == 'F' & Year == 2000) %>% 
+sd_woman_2000 <- all_participants %>% 
+  filter(Sex == 'F' & Year == 2000) %>% 
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
   summarise(sd(Height, na.rm = TRUE))
+
 sprintf("%.1f", round(sd_woman_2000[1,1,1], 1))
 
+all_participants %>% 
+  filter(Sex == 'F' & !is.na(Height) & Year == 2000) %>%   
+  select(ID, Height, Sex, Season, Year, Country_NOC) %>% 
+  distinct() %>% 
+  ggplot(aes(y = Height, x = Sex)) +
+  geom_boxplot(na.rm = TRUE, aes(fill = factor(Sex))) +
+  stat_summary(na.rm = TRUE, fun=mean, colour="darkred", geom="point", 
+               size=3) +
+  stat_summary(na.rm = TRUE, fun=mean, geom="text", 
+               vjust=-0.7, aes(label=round(..y.., digits=1))) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Height of women-athletes at at the 2000 Olympics",
+       subtitle = 'Mean are marked on the graph')
 
 # What sport was the 2006 Olympics heaviest athlete in? (2 points)
 
@@ -803,4 +860,71 @@ corr_member_no_medals <- cor.test(team_and_no_medals$team_members,
                                   team_and_no_medals$number_no_medals, 
                                   method = "kendal")
 
-# Some my tests
+# There are more men than women in winter sports
+
+
+winter_participants <- all_participants %>% 
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  filter(Season == 'Winter') %>% 
+  group_by(Country_NOC, Games, Sex) %>% 
+  summarise(team_members = n_distinct(ID, Sex, Year, Country_NOC))
+
+
+winter_participants %>% 
+  ggplot(aes(team_members)) +
+  geom_density(aes(color = Sex)) +
+  scale_color_hue(labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Distribution density",
+       subtitle="of the participants of both sexes a team has",
+       x ="Number of team participants")
+
+shapiro.test(winter_participants$team_members[winter_participants$Sex == 'M'])
+shapiro.test(winter_participants$team_members[winter_participants$Sex == 'F'])
+
+length(winter_participants$team_members[winter_participants$Sex == 'M'])
+
+wilcox_winter <- wilcox.test(team_members~Sex,
+                             data = winter_participants, 
+                             alternative = "two.sided")
+winter_participants %>% 
+  ggplot(aes(x = team_members, y = Sex)) +
+  geom_violin(aes(fill = factor(Sex))) +
+  stat_boxplot(geom ='errorbar', width=0.5) +
+  geom_boxplot(width=0.05) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Difference between the number of men and women in teams",
+       x='Number of members in teams',
+       y='Sex')
+
+
+# На летних играх участники выше, чем на зимних
+# Is there a difference in the height of women at the winter and summer games
+
+season_height <- all_participants %>% 
+  filter(Sex == 'F' & !is.na(Season)) %>% 
+  select(ID, Height, Sex, Season, Year) %>% 
+  distinct()
+
+season_height  %>% 
+  ggplot(aes(Height, color=Season)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Height of women-athletes in different seasons")
+
+
+season_number <- season_height %>% group_by(Season) %>% summarise(n = n())
+
+season_number[2,1,1]
+
+
+t_season_f <- t.test(Height~Season, data = season_height)
+
+ggplot(season_height, aes(y = Height, x = Season)) +
+  geom_violin(aes(fill = factor(Season))) +
+  stat_boxplot(geom ='errorbar', width=0.3) +
+  geom_boxplot(width=0.05) +
+  scale_fill_discrete(name = "Season") +
+  theme_bw() +
+  labs(title="Height of women-athletes in different seasons")
