@@ -1,6 +1,7 @@
 # Set working directory to the data folder:
 # setwd("/BI_Stat_2021/olimpic_games/data")
 library(tidyverse)
+library(countrycode)
 
 # Open all .csv 
 all_participants <-
@@ -94,9 +95,6 @@ all_participants %>% filter(ID %in% (all_participants %>%
                                        .[,10,1]))
 
 
-
-
-
 # Check Weight column
 
 all_participants %>% filter(ID %in% (all_participants %>% 
@@ -155,7 +153,24 @@ all_participants %>% filter(is.na(Event))
 
 all_participants %>% filter(!(Medal %in% c('Gold', 'Silver', 'Bronze', NA)))
 
+# Check Team column
+all_participants <- all_participants %>%
+  mutate(NOC = ifelse(NOC == 'JP', 'JPN', NOC)) %>%
+  mutate(Team = ifelse(Team == 'Maid of Lebanon', 'Lebanon', Team)) %>%
+  mutate(Team = ifelse(Team == 'Peri', 'Rhodesia', Team)) %>%
+  mutate(Team = sub('-{1}[[:digit:]]{1}$', '', Team)) %>% 
+  mutate(Country_NOC = countrycode(NOC, origin = 'ioc', destination = "country.name")) %>% 
+  mutate(Country_NOC = ifelse(NOC == 'ANZ', 'Australasia', Country_NOC)) %>% 
+  mutate(Country_NOC = ifelse(NOC == 'URS', 'Soviet Union', Country_NOC)) %>% 
+  mutate(Country_NOC = ifelse(NOC == 'YUG', 'Yugoslavia', Country_NOC)) %>%
+  mutate(Country_NOC = ifelse(NOC == 'WIF', 'West Indies Federation', Country_NOC)) %>% 
+  mutate(Country_NOC = ifelse(!is.na(Country_NOC), Country_NOC, Team))
 
+all_participants %>% 
+  group_by(Country_NOC) %>% 
+  filter(!is.na(Country_NOC)) %>% 
+  summarise(n = n()) %>% 
+  arrange(n)
 
 #Age of the youngest athletes of both genders at the 1992 Olympics
 
@@ -313,56 +328,56 @@ sports_answer[1,3,1]
 
 #Winter
 winter_medals <- all_participants %>% 
-  mutate(Team = ifelse(Team == 'Unified Team', 'Soviet Union', Team)) %>% 
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
   filter(Season == 'Winter' & !is.na(Medal)) %>% 
-  mutate(Team = sub('-{1}[[:digit:]]{1}$', '', Team))
+  mutate(Country_NOC = sub('-{1}[[:digit:]]{1}$', '', Country_NOC))
 
 
 winter_medals %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(n = n()) %>% 
-  filter(n > 10) %>% 
-  ggplot(aes(y = reorder(Team, desc(n)), x = n)) +
+  filter(n > 20) %>% 
+  ggplot(aes(y = reorder(Country_NOC, desc(n)), x = n)) +
   geom_histogram(stat="identity", alpha = 0.3, fill = 'Blue') +
   geom_text(aes(label = n, fontface = "bold"), position = position_stack(vjust = 0.5)) +
   labs(x='Number of medals (all types) in different countries',
        y='Сountry',
-       title="Medals in different countries (if more than 10). Winter Games",
+       title="Medals in different countries (if more than 20). Winter Games",
        subtitle = 'The name of the country in the year of receiving') + 
   theme_set(theme_bw())
 
 
 winter_medals %>% 
   filter(Medal == 'Gold') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>% 
   top_n(n=3)
 
 winter_medals %>% 
   filter(Medal == 'Silver') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>%
   arrange(-Medals) %>% 
   top_n(n=3)
 
 winter_medals %>% 
   filter(Medal == 'Bronze') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>%
   arrange(-Medals) %>% 
   top_n(n=3)
 
 # Summer
 summer_medals <- all_participants %>% 
-  mutate(Team = ifelse(Team == 'Unified Team', 'Soviet Union', Team)) %>% 
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
   filter(Season == 'Summer' & !is.na(Medal)) %>% 
-  mutate(Team = sub('-{1}[[:digit:]]{1}$', '', Team))
+  mutate(Country_NOC = sub('-{1}[[:digit:]]{1}$', '', Country_NOC))
 
 summer_medals %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(n = n()) %>% 
   filter(n > 200) %>% 
-  ggplot(aes(y = reorder(Team, desc(n)), x = n)) +
+  ggplot(aes(y = reorder(Country_NOC, desc(n)), x = n)) +
   geom_histogram(stat="identity", alpha = 0.3, fill = 'Blue') +
   geom_text(aes(label = n, fontface = "bold"), position = position_stack(vjust = 0.5)) +
   labs(x='Number of medals (all types) in different countries',
@@ -373,28 +388,27 @@ summer_medals %>%
 
 summer_medals %>% 
   filter(Medal == 'Gold') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>% 
   arrange(-Medals) %>% 
   top_n(n=3)
 
 summer_medals %>% 
   filter(Medal == 'Silver') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>%
   arrange(-Medals) %>% 
   top_n(n=3)
 
 summer_medals %>% 
   filter(Medal == 'Bronze') %>% 
-  group_by(Team) %>% 
+  group_by(Country_NOC) %>% 
   summarise(Medals = n()) %>%
   arrange(-Medals) %>% 
   top_n(n=3)
 
-
 summer_medals_teams <- summer_medals %>% 
-  group_by(NOC, Team) %>% 
+  group_by(NOC, Country_NOC) %>% 
   summarise(n = n())
 
 # Create a new variable Height_z_scores and store the values of the 
@@ -440,7 +454,13 @@ gridExtra::grid.arrange(plot_height, plot_height_minmax, ncol=2)
 
 task_14 <- all_participants %>% 
   filter(Season == 'Winter') %>% 
-  select(Height, Weight, Age, Sex)
+  select(ID, Height, Weight, Age, Sex, Games) %>% 
+  distinct()
+
+
+task_14_ver1 <- all_participants %>% 
+  filter(Season == 'Winter') %>% 
+  select(ID, Height, Weight, Age, Sex, Games)
 
 ## Sex-Height
 
@@ -452,6 +472,13 @@ ggplot(task_14, aes(Height, color=Sex)) +
 
 t_test_height <- t.test(Height~Sex, data = task_14)
 
+ggplot(task_14, aes(y = Height, x = Sex)) +
+  geom_boxplot(na.rm = TRUE, aes(fill = factor(Sex))) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Height of athletes")
+
+
 ## Sex-Weight
 
 ggplot(task_14, aes(Weight, color=Sex)) +
@@ -461,6 +488,12 @@ ggplot(task_14, aes(Weight, color=Sex)) +
   labs(title="Weight of athletes")
 
 t_test_height <- t.test(Weight~Sex, data = task_14)
+
+ggplot(task_14, aes(y = Weight, x = Sex)) +
+  geom_boxplot(na.rm = TRUE, aes(fill = factor(Sex))) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Weight of athletes")
 
 ## Sex-Age
 
@@ -472,13 +505,302 @@ ggplot(task_14, aes(Age, color=Sex)) +
 
 t_test_age <- t.test(Age~Sex, data = task_14)
 
+ggplot(task_14, aes(y = Age, x = Sex)) +
+  geom_boxplot(na.rm = TRUE, aes(fill = factor(Sex))) +
+  scale_fill_discrete(name = "Sex", labels = c("female", "male")) +
+  theme_bw() +
+  labs(title="Age of athletes")
 
-# Нас особенно интересуют переменные Team и Medal. 
-# Что ты можешь про них сказать? 
-# Есть ли у нас основания предполагать, что они могут быть взаимосвязаны?
-# Как ты это определил?
 
 # We are especially interested in the variables Team and Medal. 
 # What can you say about them? 
 # Do we have any reason to believe that they might be interrelated? 
 # How did you define it?
+
+## Number of teams
+medals_of_team <- all_participants %>%
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  group_by(Country_NOC, Games) %>% 
+  mutate(Medal = factor(Medal,
+                        levels = c("Gold", "Silver", "Bronze"),
+                        labels = c("Gold", "Silver", "Bronze"))) %>% 
+  summarise(number_medals = sum(!is.na(Medal)))
+
+participants_of_team <- all_participants %>% 
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  group_by(Country_NOC, Games) %>% 
+  summarise(team_members = n_distinct(ID, Year, Country_NOC))
+
+team_and_medals <- participants_of_team %>% 
+  add_column(number_medals = medals_of_team$number_medals)
+
+team_and_medals <- team_and_medals %>% filter(!is.na(Country_NOC))
+
+team_and_medals %>% group_by(Country_NOC) %>% summarise(n()) %>% summarise(n())
+
+## Mean and sd of participants in team 
+## (for all the years, the team's participation in the games)
+
+round(mean(team_and_medals$team_members), 2)
+round(sd(team_and_medals$team_members), 2)
+  
+# average number of medals earned by each team over the years
+round(mean(team_and_medals$number_medals), 2)
+round(sd(team_and_medals$number_medals), 2)
+
+# medals all years
+
+round(team_and_medals %>% group_by(Country_NOC) %>% summarize(sum_medals = sum(number_medals)) %>%   summarise(mean(sum_medals)) %>% .[1,1,1], 2)
+
+# normal dist?
+
+shapiro.test(team_and_medals$team_members)
+shapiro.test(team_and_medals$number_medals)
+
+
+qqplot(team_and_medals$number_medals)
+
+length(team_and_medals$team_members)
+
+plot_medals<- ggplot(team_and_medals, aes(number_medals)) +
+  geom_density() +
+  theme_bw() + 
+  labs(title="Distribution density",
+       subtitle="of the medals number a team has",
+       x="Number of team medals")
+                                            
+plot_members <- ggplot(team_and_medals, aes(team_members)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Distribution density",
+       subtitle="of the participants number a team has",
+       x ="Number of team participants")
+
+gridExtra::grid.arrange(plot_members, plot_medals, ncol=2)
+
+# correlation
+
+pairs(team_and_medals[, c(3, 4)])
+
+ggplot(team_and_medals, aes(x=team_members, y=number_medals)) +
+  geom_point(position = "jitter") +
+  labs(y='Number of team medals',
+       x='Number of team participants',
+       title="Number of team members and its medals")+
+  geom_smooth(method = "lm") + 
+  theme_light()
+
+corr_member_medals <- cor.test(team_and_medals$team_members, 
+                               team_and_medals$number_medals, 
+                               method = "kendal")
+           
+
+
+# biggest teams
+
+team_and_medals %>% group_by(Country_NOC) %>% summarize(average_team_size = round(mean(team_members), 0)) %>% arrange(-average_team_size) %>% top_n(10)
+
+
+all_seasons_medals <- all_participants %>% 
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  filter(!is.na(Medal)) %>% 
+  mutate(Country_NOC = sub('-{1}[[:digit:]]{1}$', '', Country_NOC))
+
+
+all_seasons_medals %>% 
+  group_by(Country_NOC) %>% 
+  summarise(n = n()) %>% 
+  top_n(10) %>% 
+  ggplot(aes(y = reorder(Country_NOC, n), x = n)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Orange') +
+  geom_text(aes(label = n, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Number of medals (all types) in different countries',
+       y='Сountry',
+       title="Medals in different countries (top 10)",
+       subtitle = 'The name of the country in the year of receiving') + 
+  theme_set(theme_bw())
+
+
+# Countries that have received, on average, more than 1 medal for every 10 people on a team.
+
+medals_per_country <- team_and_medals %>% group_by(Country_NOC) %>% 
+  summarize(medals_per_member = round(mean(number_medals / team_members), 3)) %>% 
+  arrange(-medals_per_member)
+
+
+medals_per_country %>% 
+  arrange(-medals_per_member) %>% 
+  top_n(20) %>% 
+  ggplot(aes(y = reorder(Country_NOC, medals_per_member), x = medals_per_member)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Green') +
+  geom_text(aes(label = medals_per_member, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Medals (all types) per team member in different countries',
+       y='Сountry',
+       title="Medals per team member in different countries (top 20)",
+       subtitle = 'The name of the country in the year of receiving') + 
+  theme_set(theme_bw())
+
+## gold medals
+
+gold_medals_of_team <- all_participants %>%
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  mutate(Medal = factor(Medal,
+                        levels = c("Gold", "Silver", "Bronze"),
+                        labels = c("Gold", "Silver", "Bronze"))) %>% 
+  group_by(Country_NOC, Games) %>% 
+  summarise(number_gold_medals = sum(!is.na(Medal) & Medal == 'Gold'))
+
+team_and_gold_medals <- participants_of_team %>% 
+  add_column(number_gold_medals = gold_medals_of_team$number_gold_medals)
+
+team_and_gold_medals %>% group_by(Country_NOC) %>% 
+  summarize(gold_medals_per_member = round(mean(number_gold_medals / team_members), 3)) %>% 
+  arrange(-gold_medals_per_member) %>% 
+  top_n(20) %>% 
+  ggplot(aes(y = reorder(Country_NOC, gold_medals_per_member), x = gold_medals_per_member)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Gold') +
+  geom_text(aes(label = gold_medals_per_member, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Medals (all types) per team member in different countries',
+       y='Сountry',
+       title="Medals per team member in different countries (top 20)",
+       subtitle = 'The name of the country in the year of receiving') + 
+  theme_set(theme_bw())
+
+## Silver medals per participant
+
+silver_medals_of_team <- all_participants %>%
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  mutate(Medal = factor(Medal,
+                        levels = c("Gold", "Silver", "Bronze"),
+                        labels = c("Gold", "Silver", "Bronze"))) %>% 
+  group_by(Country_NOC, Games) %>% 
+  summarise(number_silver_medals = sum(!is.na(Medal) & Medal == 'Silver'))
+
+team_and_silver_medals <- participants_of_team %>% 
+  add_column(number_silver_medals = silver_medals_of_team$number_silver_medals)
+
+team_and_silver_medals %>% group_by(Country_NOC) %>% 
+  summarize(silver_medals_per_member = round(mean(number_silver_medals / team_members), 3)) %>% 
+  arrange(-silver_medals_per_member) %>% 
+  top_n(20) %>% 
+  ggplot(aes(y = reorder(Country_NOC, silver_medals_per_member), x = silver_medals_per_member)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Gray') +
+  geom_text(aes(label = silver_medals_per_member, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Silver Medals per team member in different countries',
+       y='Сountry',
+       title="Silver medals per team member in different countries (top 20)",
+       subtitle = 'The name of the country in the year of receiving') + 
+  theme_set(theme_bw())
+
+
+## Bronze medals
+bronze_medals_of_team <- all_participants %>%
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  mutate(Medal = factor(Medal,
+                        levels = c("Gold", "Silver", "Bronze"),
+                        labels = c("Gold", "Silver", "Bronze"))) %>% 
+  group_by(Country_NOC, Games) %>% 
+  summarise(number_bronze_medals = sum(!is.na(Medal) & Medal == 'Bronze'))
+
+team_and_bronze_medals <- participants_of_team %>% 
+  add_column(number_bronze_medals = bronze_medals_of_team$number_bronze_medals)
+
+team_and_bronze_medals %>% group_by(Country_NOC) %>% 
+  summarize(bronze_medals_per_member = round(mean(number_bronze_medals / team_members), 3)) %>% 
+  arrange(-bronze_medals_per_member) %>% 
+  top_n(20) %>% 
+  ggplot(aes(y = reorder(Country_NOC, bronze_medals_per_member), x = bronze_medals_per_member)) +
+  geom_histogram(stat="identity", alpha = 0.3, fill = 'Orange') +
+  geom_text(aes(label = bronze_medals_per_member, fontface = "bold"), position = position_stack(vjust = 0.5)) +
+  labs(x='Bronze Medals per team member in different countries',
+       y='Сountry',
+       title="Bronze medals per team member in different countries (top 20)",
+       subtitle = 'The name of the country in the year of receiving') + 
+  theme_set(theme_bw())
+
+# Correlation Gold medals
+
+plot_gold_medals<- ggplot(team_and_gold_medals, aes(number_gold_medals)) +
+  geom_density() +
+  theme_bw() + 
+  labs(title="Distribution density",
+       subtitle="of the Gold medals a team has",
+       x="Number of team gold medals")
+
+plot_members <- ggplot(team_and_gold_medals, aes(team_members)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Distribution density",
+       subtitle="of the participants a team has",
+       x ="Number of team participants")
+
+gridExtra::grid.arrange(plot_members, plot_gold_medals, ncol=2)
+
+pairs(team_and_gold_medals[, c(3, 4)])
+
+ggplot(team_and_gold_medals, aes(x=team_members, y=number_gold_medals)) +
+  geom_point(position = "jitter") +
+  labs(y='Number of team Gold medals',
+       x='Number of team participants',
+       title="Number of team members and its medals")+
+  geom_smooth(method = "lm") + 
+  theme_light()
+
+cor.test(team_and_gold_medals$team_members, 
+         team_and_gold_medals$number_gold_medals, 
+         method = "kendal")
+### Silver medals
+plot_silver_medals <- ggplot(team_and_silver_medals, aes(number_silver_medals)) +
+  geom_density() +
+  theme_bw() + 
+  labs(title="Distribution density",
+       subtitle="of the Silver medals a team has",
+       x="Number of team gold medals")
+
+plot_members <- ggplot(team_and_silver_medals, aes(team_members)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Distribution density",
+       subtitle="of the participants a team has",
+       x ="Number of team participants")
+
+gridExtra::grid.arrange(plot_members, plot_silver_medals, ncol=2)
+
+spariro_member <- shapiro.test(team_and_silver_medals$team_members)
+spariro_silver_medals <- shapiro.test(team_and_silver_medals$number_silver_medals)
+
+### No medal
+
+no_medals_of_team <- all_participants %>%
+  mutate(Country_NOC = ifelse(Country_NOC == 'Unified Team', 'Soviet Union', Country_NOC)) %>% 
+  group_by(Country_NOC, Games) %>% 
+  summarise(number_no_medals = sum(is.na(Medal)))
+
+team_and_no_medals <- participants_of_team %>% 
+  add_column(number_no_medals = no_medals_of_team$number_no_medals)
+
+plot_no_medals <- ggplot(team_and_no_medals, aes(number_no_medals)) +
+  geom_density() +
+  theme_bw() + 
+  labs(title="Distribution density",
+       subtitle="of the NO medals a team has",
+       x="Number of team NO medals")
+
+plot_members <- ggplot(team_and_no_medals, aes(team_members)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Distribution density",
+       subtitle="of the participants a team has",
+       x ="Number of team participants")
+
+gridExtra::grid.arrange(plot_members, plot_no_medals, ncol=2)
+
+
+spariro_member <- shapiro.test(team_and_no_medals$team_members)
+spariro_no_medals <- shapiro.test(team_and_no_medals$number_no_medals)
+
+corr_member_no_medals <- cor.test(team_and_no_medals$team_members, 
+                                  team_and_no_medals$number_no_medals, 
+                                  method = "kendal")
+
+# Some my tests
