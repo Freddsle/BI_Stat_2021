@@ -1,0 +1,65 @@
+---
+title: "PCA_tasks"
+author: "Y. Burankova"
+date: "05 12 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Dowload file and unpack files
+
+Downloading, unpacking and combining these files into one table (without "material" column):
+
+```{r message=FALSE, warning=FALSE}
+temp <- tempfile()
+download.file("https://archive.ics.uci.edu/ml/machine-learning-databases/00464/superconduct.zip", temp)
+
+file_one <- read.csv(unz(temp, 'train.csv'))
+file_two <- read.csv(unz(temp, 'unique_m.csv'))
+
+unlink(temp)
+
+file_two <- file_two %>% select(-material) %>% relocate(critical_temp)
+file_one <- file_one %>% relocate(critical_temp)
+new_table <- cbind(file_two, file_one[, c(2:82)])
+```
+
+# 2. Divide the data into training and test samples
+
+```{r message=FALSE, warning=FALSE}
+require(caTools)
+set.seed(42) 
+sample = sample.split(new_table$critical_temp, SplitRatio = .75)
+train = subset(new_table, sample == TRUE)
+test  = subset(new_table, sample == FALSE)
+```
+
+# 3. Normalize the train and test data
+
+```{r message=FALSE, warning=FALSE}
+trainMean <- train %>% select(-critical_temp) %>% apply(., 2, mean)
+trainSd <- train %>% select(-critical_temp) %>% apply(., 2, sd)
+
+norm.train <- sweep(train[ ,c(2:168)], 2L, trainMean)
+norm.train <- cbind(train[1], norm.train)
+norm.test <- sweep(sweep(test[,c(2:168)], 2L, trainMean), 2, trainSd, "/")
+norm.test <- cbind(test[1], norm.test)
+```
+
+# 4. Linear model with all columns
+```{r}
+model <- lm(critical_temp ~ ., data = norm.train)
+model_summary <- summary(model)
+
+# F-statistic:
+model_summary$fstatistic
+```
+
+Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`, Residual standard error: `r `. 
+
+The model contains too many predictors, so it might be better.
+
+# 5. 
