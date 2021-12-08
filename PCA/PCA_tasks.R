@@ -3,8 +3,8 @@ library(tidyverse)
 temp <- tempfile()
 download.file("https://archive.ics.uci.edu/ml/machine-learning-databases/00464/superconduct.zip", temp)
 
-file_one <- read.csv('train.csv')
-file_two <- read.csv('unique_m.csv')
+file_one <- read.csv('./Data/train.csv')
+file_two <- read.csv('./Data/unique_m.csv')
 
 unlink(temp)
 file_two <- file_two %>% select(-material) %>% relocate(critical_temp)
@@ -14,6 +14,8 @@ new_table <- cbind(file_two, file_one[, c(2:82)])
 
 #delete columns with all zeros
 new_table <- new_table[,colSums(new_table != 0) != 0]
+write.csv(new_table, './Data/all_in_one.csv')
+
 
 # В этой задаче мы хотим научиться предсказывать критическую температуру 
 # сверхпроводника (колонка critical_temp) по различным характеристикам вещества 

@@ -360,7 +360,7 @@ Using Kernel Principal Components Analysis the model has become much better and 
 # 8. sc-RNA seq data visualization
 
 ```{r include=FALSE}
-scRNAseq <- read.csv('scRNAseq_CITEseq.txt', sep="\t")
+scRNAseq <- read.csv('./Data/scRNAseq_CITEseq.txt', sep="\t")
 ```
 
 Read file. There are `r nrow(scRNAseq)` rows and `r ncol(scRNAseq)` columns in the data. It is CITE-seq data, Cellular Indexing of Transcriptomes and Epitopes by Sequencing, in which was simultaneously measured the single cell transcriptomes alongside the expression of `r ncol(scRNAseq)` proteins.
@@ -378,7 +378,7 @@ RNA_seurat <- CreateSeuratObject(counts = scRNAseq[, -977])
 RNA_seurat
 ```
 
-There are `r sum(PercentageFeatureSet(pbmc1, pattern = "^MT-"))` of transcripts mapping to mitochondrial genes.
+There are `r sum(PercentageFeatureSet(RNA_seurat, pattern = "^MT-"))` of transcripts mapping to mitochondrial genes.
 
 Basic data information for quality control - Scatter plot of nCount_RNA
 and nFeature_RNA:
@@ -420,7 +420,7 @@ Run PCA on the scaled data, returning 50 PCs (default):
 ```{r max.height='200px'}
 RNA_seurat <- RunPCA(RNA_seurat, features = VariableFeatures(object = RNA_seurat))
 
-ElbowPlot(pbmc1, ndims = 50)
+ElbowPlot(RNA_seurat, ndims = 50)
 ```
 
 Cluster cells into different groups based on their expression pattern to investigate cell properties. Cluster cells using FindNeighbors and FindClusters function (using 20 PCs):
@@ -459,7 +459,7 @@ Use the prepared data from section 8.1.1. Run UMAP:
 ```{r message=FALSE, warning=FALSE}
 RNA_seurat <- RunUMAP(RNA_seurat, dims = 1:20)
 
-DimPlot(pbmc1, reduction = "umap")
+DimPlot(RNA_seurat, reduction = "umap")
 
 ```
 
@@ -476,8 +476,8 @@ t-SNE plot shows that one cluster is fully isolated, and other groups are partia
 UMAP plot shows that one cluster is fully isolated, and other groups are partially overlapping. UMAP separate fully overlapped clusters from PCA. UMAP better separate clusters 5, 6 and 8 than tSNE.
 
 ```{r echo=FALSE}
-plot_tsne <- DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
-plot_umap <- DimPlot(pbmc1, reduction = "umap", label = TRUE)
+plot_tsne <- DimPlot(object = RNA_seurat, reduction = "tsne", label = TRUE)
+plot_umap <- DimPlot(RNA_seurat, reduction = "umap", label = TRUE)
 
 grid.arrange(plot_tsne, plot_umap, ncol=2)
 
