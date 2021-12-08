@@ -1,7 +1,6 @@
 ---
-title: "PCA_tasks"
+title: "PCA and Linear Regression. t-SNE and UMAP"
 author: "Y. Burankova"
-date: "05 12 2021"
 output: 
   html_document:
     df_print: paged
@@ -38,15 +37,18 @@ library(vegan)
 library(caret)
 library(kernlab)
 library(Seurat)
-library(Rtsne)
 library(ggplot2)
 library(gridExtra)
 ```
 
-- **dplyr** 1.0.5, for data manipulation
-- **vegan** 
-- **caret**
-- **kernlab**
+- **dplyr** 1.0.5, for data manipulation.
+- **ggplot2** 3.3.5 for plotting.
+- **gridExtra** 2.3 for plotting.
+- **caTools** 1.18.2 for test and train split.
+- **vegan** 2.5.7 for PCA.
+- **caret** 6.0.90 for data scaling.
+- **kernlab** 0.9.29 for kernel PCA.
+- **Seurat** 4.0.5 for t-SNE and UMAP plotting.
 
 
 # 1. Dowload file and unpack files
@@ -304,7 +306,7 @@ MAE = `r round(mean(abs(model_pcr.r2$critical_temp - model_pcr.r2$new_temp)), 3)
 
 Kernel Principal Components Analysis is a nonlinear form of principal component analysis.
 
-**!Warning!** The process takes at least an hour and requires more than 12 GB of RAM. If there is less RAM available, do this step in Python!
+**!Warning!** The process takes at least an hour and requires more than 12 GB of RAM. If there is less RAM available, do this step in Python! Scipt in `kernel_PCA_python.ipynb`.
 
 Run a Kernel PCA on data, we have used all available principal components.
 

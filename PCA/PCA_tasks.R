@@ -20,6 +20,7 @@ write.csv(new_table, './Data/all_in_one.csv', row.names = FALSE)
 # В этой задаче мы хотим научиться предсказывать критическую температуру 
 # сверхпроводника (колонка critical_temp) по различным характеристикам вещества 
 # и по его составу (все остальные колонки).
+
 require(caTools)
 set.seed(42) 
 sample = sample.split(new_table$critical_temp, SplitRatio = .75)
