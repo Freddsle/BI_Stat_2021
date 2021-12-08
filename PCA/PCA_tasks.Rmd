@@ -355,7 +355,7 @@ prob_pred$critical_temp <- norm.test$critical_temp
 
 Run results (08.12.2021): MAE = 9.192386.
 
-When running in Python: MAE = 2.70063. R-squared:	0.937, Adj. R-squared:	0.936.
+When running in Python: MAE = 10.74. R-squared:	0.7948.
 
 Using Kernel Principal Components Analysis the model has become much better and its predictive power has improved.
 
