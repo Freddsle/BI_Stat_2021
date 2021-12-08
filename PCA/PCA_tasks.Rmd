@@ -40,6 +40,7 @@ library(kernlab)
 library(Seurat)
 library(Rtsne)
 library(ggplot2)
+library(gridExtra)
 ```
 
 - **dplyr** 1.0.5, for data manipulation
@@ -53,13 +54,9 @@ library(ggplot2)
 Downloading, unpacking and combining these files into one table (without "material" column). Also, delete columns with all zeros.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-temp <- tempfile()
-download.file("https://archive.ics.uci.edu/ml/machine-learning-databases/00464/superconduct.zip", temp)
 
-file_one <- read.csv(unz(temp, 'train.csv'))
-file_two <- read.csv(unz(temp, 'unique_m.csv'))
-
-unlink(temp)
+file_one <- read.csv('./Data/train.csv')
+file_two <- read.csv('./Data/unique_m.csv')
 
 file_two <- file_two %>% select(-material) %>% relocate(critical_temp)
 file_one <- file_one %>% relocate(critical_temp)
@@ -443,24 +440,46 @@ Visualization of Single Cell RNA-seq Data Using PCA. Each pair of
 color and number indicates an inferred cluster:
 
 ```{r echo=FALSE}
-DimPlot(object = pbmc1, reduction = "pca", label = TRUE)
+DimPlot(object = RNA_seurat, reduction = "pca", label = TRUE)
 ```
 
 Visualization of Single Cell RNA-seq Data Using t-SNE. Each pair of
 color and number indicates an inferred cluster:
 
 ```{r echo=FALSE}
-DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
+DimPlot(object = RNA_seurat, reduction = "tsne", label = TRUE)
 ```
 
+## 8.2. Visualization of scRNA-seq Data Using UMAP 
+
+UMAP is a technique that offers a number of advantages over t-SNE - increased speed and better preservation of the data's global structure.
+
+Use the prepared data from section 8.1.1. Run UMAP:
+
+```{r message=FALSE, warning=FALSE}
+RNA_seurat <- RunUMAP(RNA_seurat, dims = 1:20)
+
+DimPlot(pbmc1, reduction = "umap")
+
+```
+
+## 8.3. t-SNE and UMAP results
 
 Using t-SNE we identify 9 cell type populations that in our data (there were `r scRNAseq %>% select(cluster) %>% summarise(n_distinct(.)) %>% .[1,1,1]` clusters in initially the data). 
 
-PCA and t-SNE both show 9 cell types. PCA plot shows that two clusters are partially isolated, and other 5 clusters are overlapping. t-SNE plot shows that one cluster is fully isolated, and other groups are partially overlapping. t-SNE separate fully overlapped clusters from PCA.
+PCA, t-SNE and UMAP both show 9 cell types. 
 
+PCA plot shows that two clusters are partially isolated, and other 5 clusters are overlapping. 
 
+t-SNE plot shows that one cluster is fully isolated, and other groups are partially overlapping. t-SNE separate fully overlapped clusters from PCA.
 
+UMAP plot shows that one cluster is fully isolated, and other groups are partially overlapping. UMAP separate fully overlapped clusters from PCA. UMAP better separate clusters 5, 6 and 8 than tSNE.
 
+```{r echo=FALSE}
+plot_tsne <- DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
+plot_umap <- DimPlot(pbmc1, reduction = "umap", label = TRUE)
 
+grid.arrange(plot_tsne, plot_umap, ncol=2)
 
+```
 

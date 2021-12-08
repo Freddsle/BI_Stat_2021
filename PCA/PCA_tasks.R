@@ -15,7 +15,6 @@ new_table <- cbind(file_two, file_one[, c(2:82)])
 #delete columns with all zeros
 new_table <- new_table[,colSums(new_table != 0) != 0]
 
-
 # В этой задаче мы хотим научиться предсказывать критическую температуру 
 # сверхпроводника (колонка critical_temp) по различным характеристикам вещества 
 # и по его составу (все остальные колонки).
@@ -24,6 +23,7 @@ set.seed(42)
 sample = sample.split(new_table$critical_temp, SplitRatio = .75)
 train = subset(new_table, sample == TRUE)
 test  = subset(new_table, sample == FALSE)
+
 ## Разделите данные на обучающую и тестовую выборки, 
 # на первой вы будете оценивать коэффициенты, на второй вычислять метрику. 
 
@@ -339,7 +339,17 @@ DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
 
 TSNEPlot(object = pbmc1, label = TRUE)
 
+plot_tsne <- DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
+
 
 ## UMAP
 
+pbmc1 <- RunUMAP(pbmc1, dims = 1:20)
+DimPlot(pbmc1, reduction = "umap", label = TRUE)
+DimPlot(pbmc1, reduction = "umap", split.by = "seurat_clusters")
 
+plot_tsne <- DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
+plot_umap <- DimPlot(pbmc1, reduction = "umap", label = TRUE)
+
+library(gridExtra)
+grid.arrange(plot_tsne, plot_umap, ncol=2)
