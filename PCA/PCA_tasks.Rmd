@@ -15,6 +15,20 @@ knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 1, digits = 6)
 ```
 
+```{r, include=FALSE}
+options(width = 60)
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+```
+
 # 0. Install requires packages
 
 ```{r include=FALSE}
@@ -108,7 +122,7 @@ There are`r ncol(temp_pca_train$CA$u)` principal components.
 
 Let's analyze the results using the eigenvalue plot:
 
-```{r include=FALSE}
+```{r echo=FALSE}
 Scree_Plot_PCA <- temp_pca_train
 screeplot(Scree_Plot_PCA, type = "lines", bstick = TRUE)
 ```
@@ -195,7 +209,7 @@ pca_test_67 <- cbind(critical_temp=norm.test[, 1], pca_test_67)
 
 ### 5.2.1. With 7 principal component
 
-```{r echo=FALSE}
+```{r echo=FALSE, max.height='200px'}
 model_after_pca_7 <- lm(critical_temp ~ ., data = pca_train_7)
 pca_model_summary_7 <- summary(model_after_pca_7)
 
@@ -213,7 +227,7 @@ According to the R-squared and MAE, the model became worse. Presumably because t
 
 ### 5.2.2. With 67 principal component
 
-```{r echo=FALSE}
+```{r echo=FALSE, max.height='200px'}
 model_after_pca_67 <- lm(critical_temp ~ ., data = pca_train_67)
 pca_model_summary_67 <- summary(model_after_pca_67)
 pca_model_summary_67
@@ -228,7 +242,7 @@ MAE = `r round(mean(abs(pca_test_67$critical_temp - pca_test_67$new_pca_temp)), 
 ### 5.2.3. With 50 principal component
 However, the influence of not all major principal is significant. Let's try to reduce the number of principal components, leaving only significant ones.
 
-```{r echo=FALSE}
+```{r echo=FALSE, max.height='200px'}
 data_select_train = pca_train_67 %>% 
   select(-PC27, -PC49, -PC29, -PC47, -PC41, -PC7,
          -PC26, -PC33, -PC34, -PC36, -PC31, -PC37,
@@ -251,7 +265,7 @@ MAE = `r mean(abs(data_select_test$critical_temp - data_select_test$new_pca_temp
 
 R-squared:  `r summary(model_after_pca_67_minus)$r.squared`, Adjusted R-squared: `r summary(model_after_pca_67_minus)$adj.r.squared`.
 
-(without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`, with 67 PC - R-squared:  `r model_after_pca_67$r.squared`, Adjusted R-squared: `r model_after_pca_67$adj.r.squared`).
+(without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`, with 67 PC - R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model_summary_67$adj.r.squared`).
 
 So it didn't make our model better, and led to a deterioration in the predictive ability of the model.
 
@@ -274,6 +288,11 @@ tss <- sum((model_pcr.r2$critical_temp - mean(model_pcr.r2$critical_temp)) ^ 2) 
 rsq <- 1 - rss/tss
 
 ```
+
+```{r echo=FALSE, max.height='200px'}
+summary(model_pcr)
+```
+
 
 MAE = `r round(mean(abs(model_pcr.r2$critical_temp - model_pcr.r2$new_temp)), 3)`, but R-squared is `r round(rsq, 4)`. The result is similar to what we got in two steps (combining pca and lm).
 
