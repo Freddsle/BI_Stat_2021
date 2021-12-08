@@ -2,18 +2,40 @@
 title: "PCA_tasks"
 author: "Y. Burankova"
 date: "05 12 2021"
-output: html_document
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 6)
 ```
+
+# 0. Install requires packages
+
+```{r include=FALSE}
+# install.packages("pls")
+library(dplyr)
+library(vegan)
+library(caret)
+library(kernlab)
+```
+
+- **dplyr** 1.0.5, for data manipulation
+- **vegan** 
+- **caret**
+- **kernlab**
+
 
 # 1. Dowload file and unpack files
 
-Downloading, unpacking and combining these files into one table (without "material" column):
+Downloading, unpacking and combining these files into one table (without "material" column). Also, delete columns with all zeros.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 temp <- tempfile()
 download.file("https://archive.ics.uci.edu/ml/machine-learning-databases/00464/superconduct.zip", temp)
 
@@ -25,7 +47,12 @@ unlink(temp)
 file_two <- file_two %>% select(-material) %>% relocate(critical_temp)
 file_one <- file_one %>% relocate(critical_temp)
 new_table <- cbind(file_two, file_one[, c(2:82)])
+
+#delete columns with all zeros
+new_table <- new_table[,colSums(new_table != 0) != 0]
 ```
+
+After this process we get new data frame - new_table (dimensions - `r dim(new_table)`).
 
 # 2. Divide the data into training and test samples
 
@@ -40,26 +67,280 @@ test  = subset(new_table, sample == FALSE)
 # 3. Normalize the train and test data
 
 ```{r message=FALSE, warning=FALSE}
-trainMean <- train %>% select(-critical_temp) %>% apply(., 2, mean)
-trainSd <- train %>% select(-critical_temp) %>% apply(., 2, sd)
+norm.train <- train
+temp <- scale(train[, -1])
+norm.train[, -1] <- temp
 
-norm.train <- sweep(train[ ,c(2:168)], 2L, trainMean)
-norm.train <- cbind(train[1], norm.train)
-norm.test <- sweep(sweep(test[,c(2:168)], 2L, trainMean), 2, trainSd, "/")
-norm.test <- cbind(test[1], norm.test)
+normParam <- preProcess(train[, -1])
+norm.test <- predict(normParam, test)
 ```
 
 # 4. Linear model with all columns
 ```{r}
 model <- lm(critical_temp ~ ., data = norm.train)
 model_summary <- summary(model)
+```
+Residual standard error: `r round(sd(model_summary$residuals), 1)` on `r nrow(table(model_summary$residuals)) - ncol(norm.test)` degrees of freedom
 
-# F-statistic:
-model_summary$fstatistic
+Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`.
+
+F-statistic:  `r round(model_summary$fstatistic, 0)[1]` on `r round(model_summary$fstatistic, 0)[2]` and `r round(model_summary$fstatistic, 0)[3]` DF,  p-value: <2e-16.
+
+```{r include=FALSE}
+pred_y_lm <-  predict(model, select(norm.test, -critical_temp))
 ```
 
-Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`, Residual standard error: `r `. 
-
+MAE = `r mean(abs(norm.test$critical_temp - pred_y_lm))`
 The model contains too many predictors, so it might be better.
 
-# 5. 
+
+# 5. PCA
+
+Run principal components analysis on all train set.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+temp_pca_train <- rda(train[, -1], scale = TRUE)
+
+biplot(temp_pca_train)
+```
+
+There are`r ncol(temp_pca_train$CA$u)` principal components.
+
+Let's analyze the results using the eigenvalue plot:
+
+```{r include=FALSE}
+Scree_Plot_PCA <- temp_pca_train
+screeplot(Scree_Plot_PCA, type = "lines", bstick = TRUE)
+```
+
+You can see that there are maybe enough 7 principal components.
+
+The Cumulative Proportion from summary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pca_summary <- summary(temp_pca_train)
+pca_result <- as.data.frame(pca_summary$cont)
+plot_data <- as.data.frame(t(pca_result[c("Cumulative Proportion"),]))
+plot_data$component <- rownames(plot_data)
+
+plot_data %>% 
+  filter(`Cumulative Proportion` <= 0.91) %>% 
+  tail(1)
+```
+
+90% of the variability can be explained by 67 main components.
+Let's try to apply both of these options to building a linear model.
+
+## 5.1. Getting Principal Component Scores and Data Transformation
+
+### 5.1.1. 7 principal components
+Getting Principal Component Scores.
+
+```{r}
+pca_scores_7 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                     choices = c(1:7), scaling = 0))
+```
+
+#### Train data transformation
+```{r}
+matrix_mult_train_7 <- function (pca_scores_7)  {
+  as.matrix(norm.train[, -1]) %*% pca_scores_7
+}
+
+pca_train_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_train_7))
+pca_train_7 <- cbind(critical_temp=norm.train[, 1], pca_train_7)
+```
+
+#### Test data transformation
+```{r}
+matrix_mult_test_7 <- function (pca_scores_7)  {
+  as.matrix(norm.test[, -c(1, 160)]) %*% pca_scores_7
+}
+
+pca_test_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_test_7))
+pca_test_7 <- cbind(critical_temp=norm.test[, 1], pca_test_7)
+```
+
+### 5.1.2. 67 principal components
+Getting Principal Component Scores and do the same data transormation.
+
+```{r include=FALSE}
+pca_scores_67 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                     choices = c(1:67), scaling = 0))
+```
+
+
+```{r include=FALSE}
+#### Train data transformation
+matrix_mult_train_67 <- function (pca_scores_67)  {
+  as.matrix(norm.train[, -1]) %*% pca_scores_67
+}
+
+pca_train_67 <- as.data.frame(apply(pca_scores_67, 2, matrix_mult_train_67))
+pca_train_67 <- cbind(critical_temp = norm.train[, 1], pca_train_67)
+```
+
+
+```{r include=FALSE}
+#### Test data transformation
+matrix_mult_test_67 <- function (pca_scores_67)  {
+  as.matrix(norm.test[, -c(1, 160)]) %*% pca_scores_67
+}
+
+pca_test_67 <- as.data.frame(apply(pca_scores_67, 2, matrix_mult_test_67))
+pca_test_67 <- cbind(critical_temp=norm.test[, 1], pca_test_67)
+```
+
+## 5.2. New linear regression after PCA
+
+### 5.2.1. With 7 principal component
+
+```{r echo=FALSE}
+model_after_pca_7 <- lm(critical_temp ~ ., data = pca_train_7)
+pca_model_summary_7 <- summary(model_after_pca_7)
+
+summary(model_after_pca_7)
+pca_test_7$new_pca_temp <- predict(model_after_pca_7, select(pca_test_7, -critical_temp))
+```
+
+R-squared:  `r pca_model_summary_7$r.squared`, Adjusted R-squared: `r pca_model_summary_7$adj.r.squared`.
+
+(without PCA it was multiple R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`.)
+
+MAE = `r mean(abs(pca_test_7$critical_temp - pca_test_7$new_pca_temp))`.
+
+According to the R-squared and MAE, the model became worse. Presumably because the 7 principal components explain much less than 90% of the variance.
+
+### 5.2.2. With 67 principal component
+
+```{r echo=FALSE}
+model_after_pca_67 <- lm(critical_temp ~ ., data = pca_train_67)
+pca_model_summary_67 <- summary(model_after_pca_67)
+pca_model_summary_67
+pca_test_67$new_pca_temp <- predict(model_after_pca_67, 
+                                    select(pca_test_67, -critical_temp))
+```
+
+R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model_summary_67$adj.r.squared` (without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`).
+
+MAE = `r round(mean(abs(pca_test_67$critical_temp - pca_test_67$new_pca_temp)), 3)`. According to the R-squared, the model became a bit worse, and the MAE has grown too. However, the 67 principal component model is better than the 7 principal component model.
+
+### 5.2.3. With 50 principal component
+However, the influence of not all major principal is significant. Let's try to reduce the number of principal components, leaving only significant ones.
+
+```{r echo=FALSE}
+data_select_train = pca_train_67 %>% 
+  select(-PC27, -PC49, -PC29, -PC47, -PC41, -PC7,
+         -PC26, -PC33, -PC34, -PC36, -PC31, -PC37,
+         -PC53, -PC66, -PC19, -PC40, -PC64)
+
+data_select_test = pca_test_67 %>% 
+  select(-PC27, -PC49, -PC29, -PC47, -PC41, -PC7,
+         -PC26, -PC33, -PC34, -PC36, -PC31, -PC37,
+         -PC53, -PC66, -PC19, -PC40, -PC64)
+
+model_after_pca_67_minus <- lm(critical_temp ~ ., data = data_select_train)
+
+summary(model_after_pca_67_minus)
+
+data_select_test$new_pca_temp <- predict(model_after_pca_67_minus, 
+                                    select(data_select_test, -critical_temp))
+```
+
+MAE = `r mean(abs(data_select_test$critical_temp - data_select_test$new_pca_temp))`. 
+
+R-squared:  `r summary(model_after_pca_67_minus)$r.squared`, Adjusted R-squared: `r summary(model_after_pca_67_minus)$adj.r.squared`.
+
+(without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`, with 67 PC - R-squared:  `r model_after_pca_67$r.squared`, Adjusted R-squared: `r model_after_pca_67$adj.r.squared`).
+
+So it didn't make our model better, and led to a deterioration in the predictive ability of the model.
+
+# 6. Principal Component Regression (PCR)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(pls)
+```
+
+We use a library that combines principal component analysis with linear regression. For prediction, we use 67 principal components, as in the second PCA case.
+
+```{r include=FALSE}
+model_pcr <- pcr(critical_temp ~ ., data = norm.train, scale=TRUE, validation="CV")
+
+model_pcr.r2 <- as.data.frame(predict(model_pcr, norm.train[, -1], ncomp = 67))
+names(model_pcr.r2)[1] <- 'new_temp'
+model_pcr.r2$critical_temp <- norm.train[, 1]
+rss <- sum((model_pcr.r2$new_temp - model_pcr.r2$critical_temp) ^ 2)  ## residual sum of squares
+tss <- sum((model_pcr.r2$critical_temp - mean(model_pcr.r2$critical_temp)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+
+```
+
+MAE = `r round(mean(abs(model_pcr.r2$critical_temp - model_pcr.r2$new_temp)), 3)`, but R-squared is `r round(rsq, 4)`. The result is similar to what we got in two steps (combining pca and lm).
+
+
+# 7. Using the kernel PCA
+
+Kernel Principal Components Analysis is a nonlinear form of principal component analysis.
+
+**!Warning!** The process takes at least an hour and requires more than 12 GB of RAM. If there is less RAM available, do this step in Python!
+
+Run a Kernel PCA on data, we have used all available principal components.
+
+```{r eval=FALSE}
+kpca <-  kpca(~., data = norm.train[, -1], kernel = 'rbfdot')
+
+```
+
+Transform the data using the calculated principal components.
+
+```{r eval=FALSE}
+norm.train.kpca <- as.data.frame(predict(kpca, norm.train[,-1]))
+norm.train.kpca$critical_temp <- norm.train$critical_temp
+
+norm.test.kpca <-  as.data.frame(predict(kpca, norm.test[,-1]))
+norm.test.kpca$critical_temp <- norm.test$critical_temp
+
+```
+
+Linear regression on the transformed data:
+
+```{r eval=FALSE}
+lm_kpca <- lm(formula = critical_temp ~ ., 
+              family = gaussian, 
+              data = norm.train.kpca)
+
+```
+
+Run results (08.12.2021):
+
+- **Residual standard error**: 12.86 on 14564 degrees of freedom.
+- Multiple R-squared:  **0.8755**, Adjusted R-squared:  **0.8604**.
+- F-statistic: 57.85 on 1771 and 14564 DF,  p-value: < 2.2e-16.
+
+Much better!
+
+Predicting the test set results using `lm_kpca`:
+
+```{r eval=FALSE}
+prob_pred <-  as.data.frame(predict(classifier, 
+                                    newdata  = select(norm.test.kpca,
+                                                      -critical_temp)))
+
+prob_pred$critical_temp <- norm.test$critical_temp
+```
+
+Run results (08.12.2021): MAE = 9.192386.
+
+When running in Python: MAE = 2.70063. R2 = 0.9702866.
+
+Using Kernel Principal Components Analysis the model has become much better and its predictive power has improved.
+
+
+# 8. sc-RNA seq data visualization
+
+```{r}
+
+```
+
+
+
