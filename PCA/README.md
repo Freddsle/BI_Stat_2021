@@ -1,5 +1,7 @@
 # PCA and LR. t-SNE and UMAP
 
+Analysis in `.Rmd` file and `.html` file.
+
 ### Practice with Principal component analysis (PCA) and Linear regression
 
 Processing and analysis the [Superconductivty Data](https://archive.ics.uci.edu/ml/datasets/Superconductivty+Data#):
