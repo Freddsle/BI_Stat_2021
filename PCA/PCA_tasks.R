@@ -31,7 +31,7 @@ test  = subset(new_table, sample == FALSE)
 ###
 # install.packages('caret')
 library(caret)
-
+norm.train <- train
 temp <- scale(train[, -1])
 norm.train[, -1] <- temp
 
@@ -205,7 +205,7 @@ model_pcr <- pcr(critical_temp ~ ., data = norm.train, scale=TRUE, validation="C
 
 summary(model_pcr)
 
-norm.test.pcr <- as.data.frame(predict(model_pcr, norm.test[, -1]))
+norm.test.pcr <- as.data.frame(predict(model_pcr, as.matrix(norm.test[, -1])))
 names(norm.test.pcr)[1] <- 'new_temp'
 norm.test.pcr$critical_temp <- norm.test$critical_temp
 
@@ -293,7 +293,7 @@ library(Seurat)
 library(Rtsne)
 library(ggplot2)
 
-pbmc1 <- CreateSeuratObject(counts = scRNAseq, min.cells = 3, min.features = 30)
+pbmc1 <- CreateSeuratObject(counts = scRNAseq[, -977])
 pbmc1
 
 
@@ -303,35 +303,36 @@ pbmc1[["percent.mt"]] <- PercentageFeatureSet(pbmc1, pattern = "^MT-")
 FeatureScatter(pbmc1, feature1 = "nCount_RNA", feature2 ="percent.mt")
 FeatureScatter(pbmc1, feature1 = "nCount_RNA", feature2 ="nFeature_RNA")
 
-pbmc1 <- subset(pbmc1,subset=nFeature_RNA>200  &nCount_RNA<26000 & percent.mt<15)
+pbmc1 <- subset(pbmc1, subset = nFeature_RNA > 200  & nCount_RNA < 60000)
 
 #### Data Normalization
 pbmc1<- NormalizeData(pbmc1)
 
-##### Identification ofHighly Variable Features
+##### Identification of Highly Variable Features
 pbmc1<- FindVariableFeatures(pbmc1)
 
 VariableFeaturePlot(pbmc1)
 
 #### Data Scaling
-pbmc1<- ScaleData(pbmc1, features = rownames(pbmc1))
+pbmc1 <- ScaleData(pbmc1)
 
 #### Visualization of scRNA-seq Data Using t-SNE
 ##### Principal Component Analysis (PCA)
 
-pbmc1<- RunPCA(pbmc1, features = VariableFeatures(object = pbmc1), npcs = 50)
+pbmc1<- RunPCA(pbmc1, features = VariableFeatures(object = pbmc1))
+ElbowPlot(pbmc1, ndims = 50)
 
 ##### Cell Clustering
 ######## See note 2
-pbmc1<- FindNeighbors(pbmc1, dims = 1:30)
+pbmc1<- FindNeighbors(pbmc1, dims = 1:20)
 pbmc1<- FindClusters(pbmc1, resolution = 1)
 
-##### Running t-SNE --- seeNote 2 -- почему они выбирали 30 PC
+##### Running t-SNE
 
-pbmc1<- RunTSNE(pbmc1, dims = 1:30, tsne.method = "Rtsne")
+pbmc1<- RunTSNE(pbmc1, dims = 1:20, tsne.method = "Rtsne")
 
 
-#### Visualization ofSingle Cell RNA-seq DataUsing t-SNE or PCA
+#### Visualization of Single Cell RNA-seq Data Using t-SNE or PCA
 
 DimPlot(object = pbmc1, reduction = "pca", label = TRUE)
 DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
@@ -339,4 +340,6 @@ DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
 TSNEPlot(object = pbmc1, label = TRUE)
 
 
-### UMAP
+## UMAP
+
+

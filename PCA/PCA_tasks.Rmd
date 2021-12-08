@@ -37,6 +37,9 @@ library(dplyr)
 library(vegan)
 library(caret)
 library(kernlab)
+library(Seurat)
+library(Rtsne)
+library(ggplot2)
 ```
 
 - **dplyr** 1.0.5, for data manipulation
@@ -114,11 +117,14 @@ Run principal components analysis on all train set.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 temp_pca_train <- rda(train[, -1], scale = TRUE)
+```
 
+```{r echo=FALSE}
 biplot(temp_pca_train)
 ```
 
-There are`r ncol(temp_pca_train$CA$u)` principal components.
+
+There are `r ncol(temp_pca_train$CA$u)` principal components.
 
 Let's analyze the results using the eigenvalue plot:
 
@@ -293,7 +299,6 @@ rsq <- 1 - rss/tss
 summary(model_pcr)
 ```
 
-
 MAE = `r round(mean(abs(model_pcr.r2$critical_temp - model_pcr.r2$new_temp)), 3)`, but R-squared is `r round(rsq, 4)`. The result is similar to what we got in two steps (combining pca and lm).
 
 
@@ -357,9 +362,105 @@ Using Kernel Principal Components Analysis the model has become much better and 
 
 # 8. sc-RNA seq data visualization
 
-```{r}
-
+```{r include=FALSE}
+scRNAseq <- read.csv('scRNAseq_CITEseq.txt', sep="\t")
 ```
+
+Read file. There are `r nrow(scRNAseq)` rows and `r ncol(scRNAseq)` columns in the data. It is CITE-seq data, Cellular Indexing of Transcriptomes and Epitopes by Sequencing, in which was simultaneously measured the single cell transcriptomes alongside the expression of `r ncol(scRNAseq)` proteins.
+
+
+## 8.1. t-SNE - t-Distributed Stochastic Neighbor Embedding
+
+### 8.1.1. Data Preprocessing
+
+t-SNE is used for dimensionality reduction for the visualization of high-dimensional datasets. The last column contain the number of cluster, that we delete it before t-SNE.
+
+Create Seurat Object:
+```{r echo=FALSE}
+RNA_seurat <- CreateSeuratObject(counts = scRNAseq[, -977])
+RNA_seurat
+```
+
+There are `r sum(PercentageFeatureSet(pbmc1, pattern = "^MT-"))` of transcripts mapping to mitochondrial genes.
+
+Basic data information for quality control - Scatter plot of nCount_RNA
+and nFeature_RNA:
+
+```{r echo=FALSE}
+FeatureScatter(RNA_seurat, feature1 = "nCount_RNA", feature2 ="nFeature_RNA")
+```
+
+Kept cells with more than 200 unique feature/gene counts (nFeature_RNA), less than 26,000 UMI counts (nCount_RNA):
+
+```{r}
+RNA_seurat <- subset(RNA_seurat, subset = nFeature_RNA > 200  & nCount_RNA < 60000)
+```
+
+Normalized the data with function LogNormalize and Identify of Highly Variable Features.
+
+Cell-to-cell variation of each feature, with each red point represents a
+highly variable feature:
+
+```{r}
+RNA_seurat <- NormalizeData(RNA_seurat)
+
+RNA_seurat <- FindVariableFeatures(RNA_seurat)
+
+VariableFeaturePlot(RNA_seurat)
+```
+
+Scaling makes each gene equal weight, thus highly expressed genes
+do not dominate in later analyses (function ScaleData that scales the mean and variance of each feature across cells is 0 and 1). 
+
+```{r}
+RNA_seurat <- ScaleData(RNA_seurat, features = rownames(RNA_seurat))
+```
+
+### 8.1.2. Visualization of scRNA-seq Data Using t-SNE
+
+Run PCA on the scaled data, returning 50 PCs (default):
+
+```{r max.height='200px'}
+RNA_seurat <- RunPCA(RNA_seurat, features = VariableFeatures(object = RNA_seurat))
+
+ElbowPlot(pbmc1, ndims = 50)
+```
+
+Cluster cells into different groups based on their expression pattern to investigate cell properties. Cluster cells using FindNeighbors and FindClusters function (using 20 PCs):
+
+```{r max.height='200px'}
+RNA_seurat <- FindNeighbors(RNA_seurat, dims = 1:20)
+RNA_seurat <- FindClusters(RNA_seurat, resolution = 1)
+```
+
+Visualize scRNA-seq data by running RunTSNE function, with the same PCs as input for the cell clustering:
+
+```{r}
+RNA_seurat <- RunTSNE(RNA_seurat, dims = 1:20, tsne.method = "Rtsne")
+```
+
+Visualization of Single Cell RNA-seq Data Using PCA. Each pair of
+color and number indicates an inferred cluster:
+
+```{r echo=FALSE}
+DimPlot(object = pbmc1, reduction = "pca", label = TRUE)
+```
+
+Visualization of Single Cell RNA-seq Data Using t-SNE. Each pair of
+color and number indicates an inferred cluster:
+
+```{r echo=FALSE}
+DimPlot(object = pbmc1, reduction = "tsne", label = TRUE)
+```
+
+
+Using t-SNE we identify 9 cell type populations that in our data (there were `r scRNAseq %>% select(cluster) %>% summarise(n_distinct(.)) %>% .[1,1,1]` clusters in initially the data). 
+
+PCA and t-SNE both show 9 cell types. PCA plot shows that two clusters are partially isolated, and other 5 clusters are overlapping. t-SNE plot shows that one cluster is fully isolated, and other groups are partially overlapping. t-SNE separate fully overlapped clusters from PCA.
+
+
+
+
 
 
 

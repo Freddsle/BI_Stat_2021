@@ -338,7 +338,7 @@ pca_test_7 &lt;- cbind(critical_temp=norm.test[, 1], pca_test_7)</code></pre>
 <h2>5.2. New linear regression after PCA</h2>
 <div id="with-7-principal-component" class="section level3">
 <h3>5.2.1. With 7 principal component</h3>
-<pre style="max-height: 100px;"><code>## 
+<pre style="max-height: 200px;"><code>## 
 ## Call:
 ## lm(formula = critical_temp ~ ., data = pca_train_7)
 ## 
@@ -370,7 +370,7 @@ pca_test_7 &lt;- cbind(critical_temp=norm.test[, 1], pca_test_7)</code></pre>
 </div>
 <div id="with-67-principal-component" class="section level3">
 <h3>5.2.2. With 67 principal component</h3>
-<pre style="max-height: 100px;"><code>## 
+<pre style="max-height: 200px;"><code>## 
 ## Call:
 ## lm(formula = critical_temp ~ ., data = pca_train_67)
 ## 
@@ -461,7 +461,7 @@ pca_test_7 &lt;- cbind(critical_temp=norm.test[, 1], pca_test_7)</code></pre>
 <div id="with-50-principal-component" class="section level3">
 <h3>5.2.3. With 50 principal component</h3>
 <p>However, the influence of not all major principal is significant. Let’s try to reduce the number of principal components, leaving only significant ones.</p>
-<pre style="max-height: 100px;"><code>## 
+<pre style="max-height: 200px;"><code>## 
 ## Call:
 ## lm(formula = critical_temp ~ ., data = data_select_train)
 ## 
@@ -531,7 +531,7 @@ pca_test_7 &lt;- cbind(critical_temp=norm.test[, 1], pca_test_7)</code></pre>
 ## F-statistic:  601 on 50 and 16285 DF,  p-value: &lt;2e-16</code></pre>
 <p>MAE = 15.660689.</p>
 <p>R-squared: 0.648465, Adjusted R-squared: 0.647385.</p>
-<p>(without PCA it were R-squared: 0.769096, adjusted R-squared: 0.766841, with 67 PC - R-squared: , Adjusted R-squared: ).</p>
+<p>(without PCA it were R-squared: 0.769096, adjusted R-squared: 0.766841, with 67 PC - R-squared: 0.669161, Adjusted R-squared: 0.667799).</p>
 <p>So it didn’t make our model better, and led to a deterioration in the predictive ability of the model.</p>
 </div>
 </div>
@@ -539,6 +539,237 @@ pca_test_7 &lt;- cbind(critical_temp=norm.test[, 1], pca_test_7)</code></pre>
 <div id="principal-component-regression-pcr" class="section level1">
 <h1>6. Principal Component Regression (PCR)</h1>
 <p>We use a library that combines principal component analysis with linear regression. For prediction, we use 67 principal components, as in the second PCA case.</p>
+<pre style="max-height: 200px;"><code>## Data:    X dimension: 16336 158 
+##  Y dimension: 16336 1
+## Fit method: svdpc
+## Number of components considered: 158
+## 
+## VALIDATION: RMSEP
+## Cross-validated using 10 random segments.
+##        (Intercept)  1 comps  2 comps  3 comps  4 comps
+## CV           34.43    25.56    24.88    23.86    23.61
+## adjCV        34.43    25.56    24.88    23.86    23.61
+##        5 comps  6 comps  7 comps  8 comps  9 comps
+## CV          23    22.41    22.27    22.24    22.21
+## adjCV       23    22.40    22.27    22.23    22.20
+##        10 comps  11 comps  12 comps  13 comps  14 comps
+## CV        22.09     22.03     22.08     22.07     22.26
+## adjCV     22.09     22.02     22.06     22.00     22.13
+##        15 comps  16 comps  17 comps  18 comps  19 comps
+## CV        22.59     22.36     22.27     22.30     22.32
+## adjCV     22.45     22.19     22.14     22.17     22.19
+##        20 comps  21 comps  22 comps  23 comps  24 comps
+## CV        22.20     21.48     21.29     21.31     21.30
+## adjCV     22.08     21.41     21.23     21.25     21.24
+##        25 comps  26 comps  27 comps  28 comps  29 comps
+## CV        21.29     21.32     21.51     21.61     21.43
+## adjCV     21.24     21.25     21.42     21.51     21.35
+##        30 comps  31 comps  32 comps  33 comps  34 comps
+## CV        21.45     21.94     23.64     25.02     26.42
+## adjCV     21.37     21.82     23.37     24.63     25.89
+##        35 comps  36 comps  37 comps  38 comps  39 comps
+## CV        26.91     28.61     29.17     27.36     26.92
+## adjCV     26.35     27.88     28.40     26.73     26.33
+##        40 comps  41 comps  42 comps  43 comps  44 comps
+## CV        26.34     25.68     25.63     26.11     26.21
+## adjCV     25.81     25.21     25.16     25.60     25.68
+##        45 comps  46 comps  47 comps  48 comps  49 comps
+## CV        26.25     25.61     25.73     25.98     25.62
+## adjCV     25.72     25.15     25.24     25.48     25.15
+##        50 comps  51 comps  52 comps  53 comps  54 comps
+## CV        26.71     27.37     28.08     28.67     28.68
+## adjCV     26.16     26.75     27.38     27.94     27.95
+##        55 comps  56 comps  57 comps  58 comps  59 comps
+## CV        28.78     28.49     28.89     28.57     28.24
+## adjCV     28.04     27.77     28.14     27.84     27.54
+##        60 comps  61 comps  62 comps  63 comps  64 comps
+## CV        27.67     27.92     28.14     29.07     27.67
+## adjCV     27.01     27.24     27.44     28.31     27.01
+##        65 comps  66 comps  67 comps  68 comps  69 comps
+## CV        27.93     27.72     28.06     27.74     27.91
+## adjCV     27.25     27.05     27.37     27.06     27.22
+##        70 comps  71 comps  72 comps  73 comps  74 comps
+## CV        27.88     27.94     28.48     28.51     28.59
+## adjCV     27.18     27.25     27.74     27.77     27.84
+##        75 comps  76 comps  77 comps  78 comps  79 comps
+## CV        28.65     28.52     28.25     27.96     28.51
+## adjCV     27.89     27.77     27.52     27.24     27.76
+##        80 comps  81 comps  82 comps  83 comps  84 comps
+## CV        28.14     29.40     28.92     30.99     31.28
+## adjCV     27.41     28.59     28.15     30.06     30.33
+##        85 comps  86 comps  87 comps  88 comps  89 comps
+## CV        30.19     30.80     31.85     31.31     30.18
+## adjCV     29.32     29.88     30.84     30.35     29.25
+##        90 comps  91 comps  92 comps  93 comps  94 comps
+## CV        30.73     29.90     30.67     30.83     30.91
+## adjCV     29.81     28.98     29.70     29.84     29.93
+##        95 comps  96 comps  97 comps  98 comps  99 comps
+## CV        30.85     27.70     27.24     25.76     25.19
+## adjCV     29.90     26.88     26.48     25.11     24.60
+##        100 comps  101 comps  102 comps  103 comps
+## CV         24.79      24.12      24.14      24.43
+## adjCV      24.19      23.57      23.59      23.86
+##        104 comps  105 comps  106 comps  107 comps
+## CV         24.04      24.61      24.63      25.18
+## adjCV      23.49      24.02      24.03      24.53
+##        108 comps  109 comps  110 comps  111 comps
+## CV         25.26      25.03      24.99      24.68
+## adjCV      24.61      24.39      24.36      24.06
+##        112 comps  113 comps  114 comps  115 comps
+## CV         24.74      24.73      24.57      24.79
+## adjCV      24.12      24.11      23.97      24.15
+##        116 comps  117 comps  118 comps  119 comps
+## CV         24.94      24.94      25.06      25.35
+## adjCV      24.30      24.30      24.41      24.68
+##        120 comps  121 comps  122 comps  123 comps
+## CV         24.75      24.77      24.74      24.84
+## adjCV      24.12      24.13      24.10      24.19
+##        124 comps  125 comps  126 comps  127 comps
+## CV         24.89      24.92      24.93      24.89
+## adjCV      24.24      24.27      24.28      24.24
+##        128 comps  129 comps  130 comps  131 comps
+## CV         24.78      24.91      24.83      24.80
+## adjCV      24.14      24.26      24.19      24.15
+##        132 comps  133 comps  134 comps  135 comps
+## CV         23.72      23.71      23.52      23.41
+## adjCV      23.14      23.14      22.96      22.86
+##        136 comps  137 comps  138 comps  139 comps
+## CV         23.56      24.55      24.73      25.04
+## adjCV      23.00      23.90      24.07      24.36
+##        140 comps  141 comps  142 comps  143 comps
+## CV         25.04      25.01      24.63      24.64
+## adjCV      24.35      24.33      23.97      23.98
+##        144 comps  145 comps  146 comps  147 comps
+## CV         24.78      25.69      25.80      26.26
+## adjCV      24.11      24.94      25.05      25.47
+##        148 comps  149 comps  150 comps  151 comps
+## CV         26.42      26.62      26.52      26.36
+## adjCV      25.63      25.81      25.72      25.56
+##        152 comps  153 comps  154 comps  155 comps
+## CV         26.55      26.27      26.36      26.45
+## adjCV      25.74      25.48      25.57      25.65
+##        156 comps  157 comps  158 comps
+## CV         27.21      27.24      27.37
+## adjCV      26.35      26.38      26.50
+## 
+## TRAINING: % variance explained
+##                1 comps  2 comps  3 comps  4 comps  5 comps
+## X                20.88    26.73    32.14    36.43    39.80
+## critical_temp    44.90    47.83    52.08    53.06    55.43
+##                6 comps  7 comps  8 comps  9 comps  10 comps
+## X                42.04    44.15    46.01    47.63     49.14
+## critical_temp    58.03    58.43    58.60    58.68     59.06
+##                11 comps  12 comps  13 comps  14 comps
+## X                 50.51     51.82     53.02     54.18
+## critical_temp     59.30     59.71     60.68     62.14
+##                15 comps  16 comps  17 comps  18 comps
+## X                 55.29     56.38     57.46     58.48
+## critical_temp     62.32     62.92     62.93     63.06
+##                19 comps  20 comps  21 comps  22 comps
+## X                 59.48     60.42     61.33     62.21
+## critical_temp     63.17     63.17     63.87     63.99
+##                23 comps  24 comps  25 comps  26 comps
+## X                 63.06     63.90     64.70      65.5
+## critical_temp     64.04     64.04     64.04      64.2
+##                27 comps  28 comps  29 comps  30 comps
+## X                 66.29     67.06     67.81     68.54
+## critical_temp     64.26     64.39     64.40     64.40
+##                31 comps  32 comps  33 comps  34 comps
+## X                 69.26     69.97     70.66     71.35
+## critical_temp     64.47     64.52     64.62     64.90
+##                35 comps  36 comps  37 comps  38 comps
+## X                 72.02     72.69     73.35      74.0
+## critical_temp     65.12     65.46     65.60      65.6
+##                39 comps  40 comps  41 comps  42 comps
+## X                 74.65     75.30     75.94     76.58
+## critical_temp     65.61     65.63     65.64     65.69
+##                43 comps  44 comps  45 comps  46 comps
+## X                 77.22     77.85     78.49     79.12
+## critical_temp     65.69     65.72     65.72     65.72
+##                47 comps  48 comps  49 comps  50 comps
+## X                 79.75     80.37     80.99     81.61
+## critical_temp     65.82     65.82     65.84     65.91
+##                51 comps  52 comps  53 comps  54 comps
+## X                 82.23     82.84     83.45     84.05
+## critical_temp     66.07     66.18     66.22     66.25
+##                55 comps  56 comps  57 comps  58 comps
+## X                 84.64     85.22     85.80     86.36
+## critical_temp     66.32     66.32     66.32     66.40
+##                59 comps  60 comps  61 comps  62 comps
+## X                 86.92     87.47     88.00     88.53
+## critical_temp     66.40     66.49     66.54     66.54
+##                63 comps  64 comps  65 comps  66 comps
+## X                 89.04     89.55     90.03     90.51
+## critical_temp     66.57     66.69     66.77     66.87
+##                67 comps  68 comps  69 comps  70 comps
+## X                 90.98     91.44     91.89     92.33
+## critical_temp     66.92     67.12     67.18     67.19
+##                71 comps  72 comps  73 comps  74 comps
+## X                 92.76     93.17     93.56     93.94
+## critical_temp     67.19     67.41     67.41     67.51
+##                75 comps  76 comps  77 comps  78 comps
+## X                 94.30     94.65     94.96     95.27
+## critical_temp     67.54     67.58     67.63     67.69
+##                79 comps  80 comps  81 comps  82 comps
+## X                 95.57     95.86     96.14     96.41
+## critical_temp     67.74     67.75     67.81     67.82
+##                83 comps  84 comps  85 comps  86 comps
+## X                 96.66     96.88     97.09      97.3
+## critical_temp     68.12     68.19     68.43      68.6
+##                87 comps  88 comps  89 comps  90 comps
+## X                 97.49     97.68     97.86     98.03
+## critical_temp     69.45     69.63     70.45     70.55
+##                91 comps  92 comps  93 comps  94 comps
+## X                 98.19     98.33     98.46     98.58
+## critical_temp     71.20     71.25     71.26     71.27
+##                95 comps  96 comps  97 comps  98 comps
+## X                 98.70     98.81     98.92     99.03
+## critical_temp     71.29     72.31     72.35     72.47
+##                99 comps  100 comps  101 comps  102 comps
+## X                 99.10      99.18      99.25      99.32
+## critical_temp     72.55      73.45      73.58      73.61
+##                103 comps  104 comps  105 comps  106 comps
+## X                  99.38      99.43      99.48      99.53
+## critical_temp      73.64      73.77      73.87      73.88
+##                107 comps  108 comps  109 comps  110 comps
+## X                  99.56      99.60      99.64      99.67
+## critical_temp      74.04      74.04      74.15      74.15
+##                111 comps  112 comps  113 comps  114 comps
+## X                  99.70      99.73      99.75      99.78
+## critical_temp      74.21      74.21      74.27      74.31
+##                115 comps  116 comps  117 comps  118 comps
+## X                  99.80      99.82      99.83      99.85
+## critical_temp      74.57      74.59      74.60      74.72
+##                119 comps  120 comps  121 comps  122 comps
+## X                  99.86      99.87      99.88      99.89
+## critical_temp      74.74      75.05      75.08      75.08
+##                123 comps  124 comps  125 comps  126 comps
+## X                  99.90      99.91      99.92      99.93
+## critical_temp      75.09      75.10      75.10      75.10
+##                127 comps  128 comps  129 comps  130 comps
+## X                  99.93      99.94      99.95      99.95
+## critical_temp      75.11      75.11      75.17      75.17
+##                131 comps  132 comps  133 comps  134 comps
+## X                  99.96      99.96      99.97      99.97
+## critical_temp      75.37      75.59      75.66      75.70
+##                135 comps  136 comps  137 comps  138 comps
+## X                  99.97      99.98      99.98      99.98
+## critical_temp      75.78      75.82      76.03      76.05
+##                139 comps  140 comps  141 comps  142 comps
+## X                  99.98      99.99      99.99      99.99
+## critical_temp      76.06      76.06      76.10      76.22
+##                143 comps  144 comps  145 comps  146 comps
+## X                  99.99      99.99      99.99     100.00
+## critical_temp      76.23      76.33      76.59      76.59
+##                147 comps  148 comps  149 comps  150 comps
+## X                 100.00     100.00     100.00     100.00
+## critical_temp      76.61      76.61      76.62      76.67
+##                151 comps  152 comps  153 comps  154 comps
+## X                  100.0     100.00     100.00     100.00
+## critical_temp       76.7      76.72      76.81      76.83
+##                155 comps  156 comps  157 comps  158 comps
+## X                 100.00      100.0     100.00     100.00
+## critical_temp      76.83       76.9      76.91      76.91</code></pre>
 <p>MAE = 14.834, but R-squared is 0.6692. The result is similar to what we got in two steps (combining pca and lm).</p>
 </div>
 <div id="using-the-kernel-pca" class="section level1">
