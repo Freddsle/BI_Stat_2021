@@ -104,7 +104,8 @@ F-statistic:  `r round(model_summary$fstatistic, 0)[1]` on `r round(model_summar
 pred_y_lm <-  predict(model, select(norm.test, -critical_temp))
 ```
 
-MAE = `r mean(abs(norm.test$critical_temp - pred_y_lm))`
+MAE = `r mean(abs(norm.test$critical_temp - pred_y_lm))`.
+
 The model contains too many predictors, so it might be better.
 
 
@@ -242,19 +243,19 @@ R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model
 
 MAE = `r round(mean(abs(pca_test_67$critical_temp - pca_test_67$new_pca_temp)), 3)`. According to the R-squared, the model became a bit worse, and the MAE has grown too. However, the 67 principal component model is better than the 7 principal component model.
 
-### 5.2.3. With 50 principal component
+### 5.2.3. With 53 principal component
 However, the influence of not all major principal is significant. Let's try to reduce the number of principal components, leaving only significant ones.
 
 ```{r echo=FALSE, max.height='200px'}
 data_select_train = pca_train_67 %>% 
-  select(-PC27, -PC49, -PC29, -PC47, -PC41, -PC7,
-         -PC26, -PC33, -PC34, -PC36, -PC31, -PC37,
-         -PC53, -PC66, -PC19, -PC40, -PC64)
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
 
 data_select_test = pca_test_67 %>% 
-  select(-PC27, -PC49, -PC29, -PC47, -PC41, -PC7,
-         -PC26, -PC33, -PC34, -PC36, -PC31, -PC37,
-         -PC53, -PC66, -PC19, -PC40, -PC64)
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
 
 model_after_pca_67_minus <- lm(critical_temp ~ ., data = data_select_train)
 
@@ -270,7 +271,7 @@ R-squared:  `r summary(model_after_pca_67_minus)$r.squared`, Adjusted R-squared:
 
 (without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`, with 67 PC - R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model_summary_67$adj.r.squared`).
 
-So it didn't make our model better, and led to a deterioration in the predictive ability of the model.
+So it didn't make our model much better.
 
 # 6. Principal Component Regression (PCR)
 
@@ -352,7 +353,7 @@ prob_pred$critical_temp <- norm.test$critical_temp
 
 Run results (08.12.2021): MAE = 9.192386.
 
-When running in Python: MAE = 2.70063. R2 = 0.9702866.
+When running in Python: MAE = 2.70063. R-squared:	0.937, Adj. R-squared:	0.936.
 
 Using Kernel Principal Components Analysis the model has become much better and its predictive power has improved.
 
@@ -409,7 +410,7 @@ VariableFeaturePlot(RNA_seurat)
 Scaling makes each gene equal weight, thus highly expressed genes
 do not dominate in later analyses (function ScaleData that scales the mean and variance of each feature across cells is 0 and 1). 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 RNA_seurat <- ScaleData(RNA_seurat, features = rownames(RNA_seurat))
 ```
 
@@ -417,18 +418,27 @@ RNA_seurat <- ScaleData(RNA_seurat, features = rownames(RNA_seurat))
 
 Run PCA on the scaled data, returning 50 PCs (default):
 
-```{r max.height='200px'}
+```{r message=FALSE, warning=FALSE, include=FALSE, max.height='200px'}
 RNA_seurat <- RunPCA(RNA_seurat, features = VariableFeatures(object = RNA_seurat))
+
+```
+
+```{r}
 
 ElbowPlot(RNA_seurat, ndims = 50)
 ```
 
+
 Cluster cells into different groups based on their expression pattern to investigate cell properties. Cluster cells using FindNeighbors and FindClusters function (using 20 PCs):
 
-```{r max.height='200px'}
+```{r message=FALSE, warning=FALSE, max.height='200px'}
 RNA_seurat <- FindNeighbors(RNA_seurat, dims = 1:20)
+```
+
+```{r max.height='200px'}
 RNA_seurat <- FindClusters(RNA_seurat, resolution = 1)
 ```
+
 
 Visualize scRNA-seq data by running RunTSNE function, with the same PCs as input for the cell clustering:
 

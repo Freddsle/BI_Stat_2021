@@ -14,7 +14,7 @@ new_table <- cbind(file_two, file_one[, c(2:82)])
 
 #delete columns with all zeros
 new_table <- new_table[,colSums(new_table != 0) != 0]
-write.csv(new_table, './Data/all_in_one.csv')
+write.csv(new_table, './Data/all_in_one.csv', row.names = FALSE)
 
 
 # В этой задаче мы хотим научиться предсказывать критическую температуру 
@@ -197,6 +197,30 @@ data_select_test$new_pca_temp <- predict(model_after_pca_67_minus,
 
 mean(abs(data_select_test$critical_temp - data_select_test$new_pca_temp))
 summary(model_after_pca_67_minus)$r.squared
+
+
+# 50
+
+data_select_train = pca_train_67 %>% 
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
+
+data_select_test = pca_test_67 %>% 
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
+
+model_after_pca_67_minus <- lm(critical_temp ~ ., data = data_select_train)
+
+summary(model_after_pca_67_minus)
+
+data_select_test$new_pca_temp <- predict(model_after_pca_67_minus, 
+                                         select(data_select_test, -critical_temp))
+
+mean(abs(data_select_test$critical_temp - data_select_test$new_pca_temp))
+
+
 
 # Principal Component Regression (PCR)
 #install.packages("pls")
