@@ -3,10 +3,10 @@
 ### Practice with Principal component analysis (PCA) and Linear regression
 
 Processing and analysis the [Superconductivty Data](https://archive.ics.uci.edu/ml/datasets/Superconductivty+Data#):
-    - linear regression without PCA
-    - PCA and linear regression
-    - Principal Component Regression (PCR, from pls library)
-    - kernel PCA and linear regression
+- linear regression without PCA
+- PCA and linear regression
+- Principal Component Regression (PCR, from pls library)
+- kernel PCA and linear regression
 
 ### sc-RNA seq data visualization
 
