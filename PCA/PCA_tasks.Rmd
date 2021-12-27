@@ -1,0 +1,497 @@
+---
+title: "PCA and Linear Regression. t-SNE and UMAP"
+author: "Y. Burankova"
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 6)
+```
+
+```{r, include=FALSE}
+options(width = 60)
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+```
+
+# 0. Install requires packages
+
+```{r include=FALSE}
+# install.packages("pls")
+library(dplyr)
+library(vegan)
+library(caret)
+library(kernlab)
+library(Seurat)
+library(ggplot2)
+library(gridExtra)
+```
+
+- **dplyr** 1.0.5, for data manipulation.
+- **ggplot2** 3.3.5 for plotting.
+- **gridExtra** 2.3 for plotting.
+- **caTools** 1.18.2 for test and train split.
+- **vegan** 2.5.7 for PCA.
+- **caret** 6.0.90 for data scaling.
+- **kernlab** 0.9.29 for kernel PCA.
+- **Seurat** 4.0.5 for t-SNE and UMAP plotting.
+
+
+# 1. Dowload file and unpack files
+
+Downloading, unpacking and combining these files into one table (without "material" column). Also, delete columns with all zeros.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+file_one <- read.csv('./Data/train.csv')
+file_two <- read.csv('./Data/unique_m.csv')
+
+file_two <- file_two %>% select(-material) %>% relocate(critical_temp)
+file_one <- file_one %>% relocate(critical_temp)
+new_table <- cbind(file_two, file_one[, c(2:82)])
+
+#delete columns with all zeros
+new_table <- new_table[,colSums(new_table != 0) != 0]
+```
+
+After this process we get new data frame - new_table (dimensions - `r dim(new_table)`).
+
+# 2. Divide the data into training and test samples
+
+```{r message=FALSE, warning=FALSE}
+require(caTools)
+set.seed(42) 
+sample = sample.split(new_table$critical_temp, SplitRatio = .75)
+train = subset(new_table, sample == TRUE)
+test  = subset(new_table, sample == FALSE)
+```
+
+# 3. Normalize the train and test data
+
+```{r message=FALSE, warning=FALSE}
+norm.train <- train
+temp <- scale(train[, -1])
+norm.train[, -1] <- temp
+
+normParam <- preProcess(train[, -1])
+norm.test <- predict(normParam, test)
+```
+
+# 4. Linear model with all columns
+```{r}
+model <- lm(critical_temp ~ ., data = norm.train)
+model_summary <- summary(model)
+```
+Residual standard error: `r round(sd(model_summary$residuals), 1)` on `r nrow(table(model_summary$residuals)) - ncol(norm.test)` degrees of freedom
+
+Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`.
+
+F-statistic:  `r round(model_summary$fstatistic, 0)[1]` on `r round(model_summary$fstatistic, 0)[2]` and `r round(model_summary$fstatistic, 0)[3]` DF,  p-value: <2e-16.
+
+```{r include=FALSE}
+pred_y_lm <-  predict(model, select(norm.test, -critical_temp))
+```
+
+MAE = `r mean(abs(norm.test$critical_temp - pred_y_lm))`.
+
+The model contains too many predictors, so it might be better.
+
+
+# 5. PCA
+
+Run principal components analysis on all train set.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+temp_pca_train <- rda(train[, -1], scale = TRUE)
+```
+
+```{r echo=FALSE}
+biplot(temp_pca_train)
+```
+
+
+There are `r ncol(temp_pca_train$CA$u)` principal components.
+
+Let's analyze the results using the eigenvalue plot:
+
+```{r echo=FALSE}
+Scree_Plot_PCA <- temp_pca_train
+screeplot(Scree_Plot_PCA, type = "lines", bstick = TRUE)
+```
+
+You can see that there are maybe enough 7 principal components.
+
+The Cumulative Proportion from summary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pca_summary <- summary(temp_pca_train)
+pca_result <- as.data.frame(pca_summary$cont)
+plot_data <- as.data.frame(t(pca_result[c("Cumulative Proportion"),]))
+plot_data$component <- rownames(plot_data)
+
+plot_data %>% 
+  filter(`Cumulative Proportion` <= 0.91) %>% 
+  tail(1)
+```
+
+90% of the variability can be explained by 67 main components.
+Let's try to apply both of these options to building a linear model.
+
+## 5.1. Getting Principal Component Scores and Data Transformation
+
+### 5.1.1. 7 principal components
+Getting Principal Component Scores.
+
+```{r}
+pca_scores_7 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                     choices = c(1:7), scaling = 0))
+```
+
+#### Train data transformation
+```{r}
+matrix_mult_train_7 <- function (pca_scores_7)  {
+  as.matrix(norm.train[, -1]) %*% pca_scores_7
+}
+
+pca_train_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_train_7))
+pca_train_7 <- cbind(critical_temp=norm.train[, 1], pca_train_7)
+```
+
+#### Test data transformation
+```{r}
+matrix_mult_test_7 <- function (pca_scores_7)  {
+  as.matrix(norm.test[, -c(1, 160)]) %*% pca_scores_7
+}
+
+pca_test_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_test_7))
+pca_test_7 <- cbind(critical_temp=norm.test[, 1], pca_test_7)
+```
+
+### 5.1.2. 67 principal components
+Getting Principal Component Scores and do the same data transormation.
+
+```{r include=FALSE}
+pca_scores_67 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                     choices = c(1:67), scaling = 0))
+```
+
+
+```{r include=FALSE}
+#### Train data transformation
+matrix_mult_train_67 <- function (pca_scores_67)  {
+  as.matrix(norm.train[, -1]) %*% pca_scores_67
+}
+
+pca_train_67 <- as.data.frame(apply(pca_scores_67, 2, matrix_mult_train_67))
+pca_train_67 <- cbind(critical_temp = norm.train[, 1], pca_train_67)
+```
+
+
+```{r include=FALSE}
+#### Test data transformation
+matrix_mult_test_67 <- function (pca_scores_67)  {
+  as.matrix(norm.test[, -c(1, 160)]) %*% pca_scores_67
+}
+
+pca_test_67 <- as.data.frame(apply(pca_scores_67, 2, matrix_mult_test_67))
+pca_test_67 <- cbind(critical_temp=norm.test[, 1], pca_test_67)
+```
+
+## 5.2. New linear regression after PCA
+
+### 5.2.1. With 7 principal component
+
+```{r echo=FALSE, max.height='200px'}
+model_after_pca_7 <- lm(critical_temp ~ ., data = pca_train_7)
+pca_model_summary_7 <- summary(model_after_pca_7)
+
+summary(model_after_pca_7)
+pca_test_7$new_pca_temp <- predict(model_after_pca_7, select(pca_test_7, -critical_temp))
+```
+
+R-squared:  `r pca_model_summary_7$r.squared`, Adjusted R-squared: `r pca_model_summary_7$adj.r.squared`.
+
+(without PCA it was multiple R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`.)
+
+MAE = `r mean(abs(pca_test_7$critical_temp - pca_test_7$new_pca_temp))`.
+
+According to the R-squared and MAE, the model became worse. Presumably because the 7 principal components explain much less than 90% of the variance.
+
+### 5.2.2. With 67 principal component
+
+```{r echo=FALSE, max.height='200px'}
+model_after_pca_67 <- lm(critical_temp ~ ., data = pca_train_67)
+pca_model_summary_67 <- summary(model_after_pca_67)
+pca_model_summary_67
+pca_test_67$new_pca_temp <- predict(model_after_pca_67, 
+                                    select(pca_test_67, -critical_temp))
+```
+
+R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model_summary_67$adj.r.squared` (without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`).
+
+MAE = `r round(mean(abs(pca_test_67$critical_temp - pca_test_67$new_pca_temp)), 3)`. According to the R-squared, the model became a bit worse, and the MAE has grown too. However, the 67 principal component model is better than the 7 principal component model.
+
+### 5.2.3. With 53 principal component
+However, the influence of not all major principal is significant. Let's try to reduce the number of principal components, leaving only significant ones.
+
+```{r echo=FALSE, max.height='200px'}
+data_select_train = pca_train_67 %>% 
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
+
+data_select_test = pca_test_67 %>% 
+  select(-PC43, -PC46, -PC38, -PC20, -PC25, -PC45,
+         -PC62, -PC30, -PC57, -PC48, -PC56, -PC59,
+         -PC29, -PC24)
+
+model_after_pca_67_minus <- lm(critical_temp ~ ., data = data_select_train)
+
+summary(model_after_pca_67_minus)
+
+data_select_test$new_pca_temp <- predict(model_after_pca_67_minus, 
+                                    select(data_select_test, -critical_temp))
+```
+
+MAE = `r mean(abs(data_select_test$critical_temp - data_select_test$new_pca_temp))`. 
+
+R-squared:  `r summary(model_after_pca_67_minus)$r.squared`, Adjusted R-squared: `r summary(model_after_pca_67_minus)$adj.r.squared`.
+
+(without PCA it were R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`, with 67 PC - R-squared:  `r pca_model_summary_67$r.squared`, Adjusted R-squared: `r pca_model_summary_67$adj.r.squared`).
+
+So it didn't make our model much better.
+
+# 6. Principal Component Regression (PCR)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(pls)
+```
+
+We use a library that combines principal component analysis with linear regression. For prediction, we use 67 principal components, as in the second PCA case.
+
+```{r include=FALSE}
+model_pcr <- pcr(critical_temp ~ ., data = norm.train, scale=TRUE, validation="CV")
+
+model_pcr.r2 <- as.data.frame(predict(model_pcr, norm.train[, -1], ncomp = 67))
+names(model_pcr.r2)[1] <- 'new_temp'
+model_pcr.r2$critical_temp <- norm.train[, 1]
+rss <- sum((model_pcr.r2$new_temp - model_pcr.r2$critical_temp) ^ 2)  ## residual sum of squares
+tss <- sum((model_pcr.r2$critical_temp - mean(model_pcr.r2$critical_temp)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+
+```
+
+```{r echo=FALSE, max.height='200px'}
+summary(model_pcr)
+```
+
+MAE = `r round(mean(abs(model_pcr.r2$critical_temp - model_pcr.r2$new_temp)), 3)`, but R-squared is `r round(rsq, 4)`. The result is similar to what we got in two steps (combining pca and lm).
+
+
+# 7. Using the kernel PCA
+
+Kernel Principal Components Analysis is a nonlinear form of principal component analysis.
+
+**!Warning!** The process takes at least an hour and requires more than 12 GB of RAM. If there is less RAM available, do this step in Python! Scipt in `kernel_PCA_python.ipynb`.
+
+Run a Kernel PCA on data, we have used all available principal components.
+
+```{r eval=FALSE}
+kpca <-  kpca(~., data = norm.train[, -1], kernel = 'rbfdot')
+
+```
+
+Transform the data using the calculated principal components.
+
+```{r eval=FALSE}
+norm.train.kpca <- as.data.frame(predict(kpca, norm.train[,-1]))
+norm.train.kpca$critical_temp <- norm.train$critical_temp
+
+norm.test.kpca <-  as.data.frame(predict(kpca, norm.test[,-1]))
+norm.test.kpca$critical_temp <- norm.test$critical_temp
+
+```
+
+Linear regression on the transformed data:
+
+```{r eval=FALSE}
+lm_kpca <- lm(formula = critical_temp ~ ., 
+              family = gaussian, 
+              data = norm.train.kpca)
+
+```
+
+Run results (08.12.2021):
+
+- **Residual standard error**: 12.86 on 14564 degrees of freedom.
+- Multiple R-squared:  **0.8755**, Adjusted R-squared:  **0.8604**.
+- F-statistic: 57.85 on 1771 and 14564 DF,  p-value: < 2.2e-16.
+
+Much better!
+
+Predicting the test set results using `lm_kpca`:
+
+```{r eval=FALSE}
+prob_pred <-  as.data.frame(predict(classifier, 
+                                    newdata  = select(norm.test.kpca,
+                                                      -critical_temp)))
+
+prob_pred$critical_temp <- norm.test$critical_temp
+```
+
+Run results (08.12.2021): MAE = 9.192386.
+
+When running in Python: MAE = 10.74. R-squared:	0.7948.
+
+Using Kernel Principal Components Analysis the model has become much better and its predictive power has improved.
+
+
+# 8. sc-RNA seq data visualization
+
+```{r include=FALSE}
+scRNAseq <- read.csv('./Data/scRNAseq_CITEseq.txt', sep="\t")
+```
+
+Read file. There are `r nrow(scRNAseq)` rows and `r ncol(scRNAseq)` columns in the data. It is CITE-seq data, Cellular Indexing of Transcriptomes and Epitopes by Sequencing, in which was simultaneously measured the single cell transcriptomes alongside the expression of `r ncol(scRNAseq)` proteins.
+
+
+## 8.1. t-SNE - t-Distributed Stochastic Neighbor Embedding
+
+### 8.1.1. Data Preprocessing
+
+t-SNE is used for dimensionality reduction for the visualization of high-dimensional datasets. The last column contain the number of cluster, that we delete it before t-SNE.
+
+Create Seurat Object:
+```{r echo=FALSE}
+RNA_seurat <- CreateSeuratObject(counts = scRNAseq[, -977])
+RNA_seurat
+```
+
+There are `r sum(PercentageFeatureSet(RNA_seurat, pattern = "^MT-"))` of transcripts mapping to mitochondrial genes.
+
+Basic data information for quality control - Scatter plot of nCount_RNA
+and nFeature_RNA:
+
+```{r echo=FALSE}
+FeatureScatter(RNA_seurat, feature1 = "nCount_RNA", feature2 ="nFeature_RNA")
+```
+
+Kept cells with more than 200 unique feature/gene counts (nFeature_RNA), less than 26,000 UMI counts (nCount_RNA):
+
+```{r}
+RNA_seurat <- subset(RNA_seurat, subset = nFeature_RNA > 200  & nCount_RNA < 60000)
+```
+
+Normalized the data with function LogNormalize and Identify of Highly Variable Features.
+
+Cell-to-cell variation of each feature, with each red point represents a
+highly variable feature:
+
+```{r}
+RNA_seurat <- NormalizeData(RNA_seurat)
+
+RNA_seurat <- FindVariableFeatures(RNA_seurat)
+
+VariableFeaturePlot(RNA_seurat)
+```
+
+Scaling makes each gene equal weight, thus highly expressed genes
+do not dominate in later analyses (function ScaleData that scales the mean and variance of each feature across cells is 0 and 1). 
+
+```{r message=FALSE, warning=FALSE}
+RNA_seurat <- ScaleData(RNA_seurat, features = rownames(RNA_seurat))
+```
+
+### 8.1.2. Visualization of scRNA-seq Data Using t-SNE
+
+Run PCA on the scaled data, returning 50 PCs (default):
+
+```{r message=FALSE, warning=FALSE, include=FALSE, max.height='200px'}
+RNA_seurat <- RunPCA(RNA_seurat, features = VariableFeatures(object = RNA_seurat))
+
+```
+
+```{r}
+
+ElbowPlot(RNA_seurat, ndims = 50)
+```
+
+
+Cluster cells into different groups based on their expression pattern to investigate cell properties. Cluster cells using FindNeighbors and FindClusters function (using 20 PCs):
+
+```{r message=FALSE, warning=FALSE, max.height='200px'}
+RNA_seurat <- FindNeighbors(RNA_seurat, dims = 1:20)
+```
+
+```{r max.height='200px'}
+RNA_seurat <- FindClusters(RNA_seurat, resolution = 1)
+```
+
+
+Visualize scRNA-seq data by running RunTSNE function, with the same PCs as input for the cell clustering:
+
+```{r}
+RNA_seurat <- RunTSNE(RNA_seurat, dims = 1:20, tsne.method = "Rtsne")
+```
+
+Visualization of Single Cell RNA-seq Data Using PCA. Each pair of
+color and number indicates an inferred cluster:
+
+```{r echo=FALSE}
+DimPlot(object = RNA_seurat, reduction = "pca", label = TRUE)
+```
+
+Visualization of Single Cell RNA-seq Data Using t-SNE. Each pair of
+color and number indicates an inferred cluster:
+
+```{r echo=FALSE}
+DimPlot(object = RNA_seurat, reduction = "tsne", label = TRUE)
+```
+
+## 8.2. Visualization of scRNA-seq Data Using UMAP 
+
+UMAP is a technique that offers a number of advantages over t-SNE - increased speed and better preservation of the data's global structure.
+
+Use the prepared data from section 8.1.1. Run UMAP:
+
+```{r message=FALSE, warning=FALSE}
+RNA_seurat <- RunUMAP(RNA_seurat, dims = 1:20)
+
+DimPlot(RNA_seurat, reduction = "umap")
+
+```
+
+## 8.3. t-SNE and UMAP results
+
+Using t-SNE we identify 9 cell type populations that in our data (there were `r scRNAseq %>% select(cluster) %>% summarise(n_distinct(.)) %>% .[1,1,1]` clusters in initially the data). 
+
+PCA, t-SNE and UMAP both show 9 cell types. 
+
+PCA plot shows that two clusters are partially isolated, and other 5 clusters are overlapping. 
+
+t-SNE plot shows that one cluster is fully isolated, and other groups are partially overlapping. t-SNE separate fully overlapped clusters from PCA.
+
+UMAP plot shows that one cluster is fully isolated, and other groups are partially overlapping. UMAP separate fully overlapped clusters from PCA. UMAP better separate clusters 5, 6 and 8 than tSNE.
+
+```{r echo=FALSE}
+plot_tsne <- DimPlot(object = RNA_seurat, reduction = "tsne", label = TRUE)
+plot_umap <- DimPlot(RNA_seurat, reduction = "umap", label = TRUE)
+
+grid.arrange(plot_tsne, plot_umap, ncol=2)
+
+```
+
