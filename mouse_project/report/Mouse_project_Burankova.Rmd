@@ -1,0 +1,97 @@
+---
+title: "Mouse_project_Burankova"
+author: "Y.P. Burankova"
+date: '2022-04-07'
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 6)
+```
+
+# Import and EDA
+
+## Import required library
+**tidyverse** library ver. 1.3.1 is used for processing data.\
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(readxl)
+
+set.seed(1234)
+```
+
+This library include all required libraries:\
+- **ggplot2** 3.3.5, for data visualization.\
+- **dplyr** 1.0.8, for data manipulation.\
+- **tidyr** 1.2.0, for data tidying.\
+- **readr** 2.1.2, for data import.\
+- **purrr** 0.3.4, for functional programming.\
+as well as tibble ver. 3.1.6, stringr ver 1.4.0, ver. forcats 0.5.1.
+
+## Import .xls data
+
+We load data from all `.xls` into one variable.
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mouse <-
+  list.files(path = "../data/", pattern = "*.xls", full.names = TRUE) %>% 
+  map_df(~read_excel(.))
+```
+`.xls` files with raw data should be placed in `./data/` folder.
+
+The data:
+```{r echo=FALSE}
+head(mouse)
+```
+
+## Data description
+
+There are `r nrow(mouse)` rows and `r ncol(mouse)` variables in the data.
+
+```{r include=FALSE}
+number_mice <- mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  distinct(MouseID) %>% 
+  count() %>% .[1,1,1]
+```
+
+**There are `r number_mice` mice** in experiment. All mouses belongs to one **of `r mouse %>% distinct(class) %>% count() %>% .[1,1,1]` classes**:
+
+```{r echo=FALSE}
+mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(class) %>% 
+  summarise(mice_count = n())
+```
+
+There are mouses with **`r mouse %>% distinct(Genotype) %>% count() %>% .[1,1,1]` genotypes and `r mouse %>% distinct(Behavior) %>% count() %>% .[1,1,1]` behavior under `r mouse %>% distinct(Treatment) %>% count() %>% .[1,1,1]` types of treatment** in dataset:
+
+```{r echo=FALSE, message=FALSE}
+mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype, class) %>% 
+  summarise('Records count' = n())
+```
+
+If we drop rows with NA in any column:
+
+```{r echo=FALSE, message=FALSE}
+mouse %>% filter_all(any_vars(is.na(.))) %>%  
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype, class) %>% 
+  summarise('Records count' = n())
+```
+
+When deleting rows with missing values, the data is **not balanced across groups**. In two cases, the control group is twice as large as the group of trisomic mice. When counted with rows with missing values, the data is **more or less balanced**. 
+
+The **number of complete observations is `r mouse %>% filter_all(any_vars(is.na(.))) %>% count() %>% .[1,1,1]`** (there are `r mouse %>% count() %>% .[1,1,1]` observations in total).
+
+Violin and box-plots for each protein (after standardization) are in `..\data\plots\` folder.
+
+
