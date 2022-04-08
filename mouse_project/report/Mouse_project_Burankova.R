@@ -10,6 +10,7 @@ mouse <-
   list.files(path = "../data/", pattern = "*.xls", full.names = TRUE) %>% 
   map_df(~read_excel(.))
 
+
 head(mouse)
 ncol(mouse)
 nrow(mouse)
@@ -304,16 +305,150 @@ result_posthoch$test$tstat['c-CS-s - c-CS-m']
 # -- объяснить, почему это является хорошим/не хорошим решением 
 
 
+# rows with many NA
+df1 <- sapply(mouse, function(y) is.na(y))
+mouse[rowSums(df1, na.rm=TRUE) > 20,]
+mouse_naom <- mouse[rowSums(df1, na.rm=TRUE) < 20,]
+
+# columns where more then half rows are NA
+na_count <- sapply(mouse_naom, function(y) sum(length(which(is.na(y)))))
+na_count[na_count > 100]
+
+mouse_naom <- mouse_naom %>% dplyr::select(-names(na_count[na_count > 100]))
+mouse_naom <- mouse_naom[rowSums(sapply(mouse_naom, function(y) is.na(y)), na.rm=TRUE) < 1,]
+
+mouse_naom <- mouse_naom %>% dplyr::select(where(is.numeric))
+
+## Linear model
+# 2. Divide the data into training and test samples
+
+library(caTools)
+require(caret)
+
+sample = sample.split(mouse_naom$ERBB4_N, SplitRatio = .75)
+train = subset(mouse_naom, sample == TRUE)
+test  = subset(mouse_naom, sample == FALSE)
+
+# 3. Normalize the train and test data
+
+norm.train <- train
+temp <- scale(train[, -1])
+norm.train[, -1] <- temp
+
+normParam <- caret::preProcess(train[, -1])
+norm.test <- predict(normParam, test)
 
 
+# LM
+model <- lm(ERBB4_N ~ ., data = norm.train)
+model_summary <- summary(model)
+model_summary
+
+round(sd(model_summary$residuals), 3)
+nrow(table(model_summary$residuals)) - ncol(norm.test) + 1 # degrees of freedom
+
+model_summary$r.squared # Multiple R-squared:  
+model_summary$adj.r.squared # , Adjusted R-squared
+
+round(model_summary$fstatistic, 0)[1] #F-statistic:
+round(model_summary$fstatistic, 0)[2] # DF
+round(model_summary$fstatistic, 0)[3] # p-value: <2e-16.
+
+pred_y_lm <-  predict(model, dplyr::select(norm.test, -ERBB4_N))
+mean(abs(norm.test$ERBB4_N - pred_y_lm))
+
+## Inspect model
+par(mfrow=c(1,1))
+plot(model, 5)
+
+par(mfrow = c(2, 2))
+plot(model)
+par(mfrow=c(1,1))
+
+library(lmtest)
+bptest(model)
 
 
+#  PCA
+
+library(vegan)
+
+temp_pca_train <- rda(dplyr::select(train, -ERBB4_N), scale = TRUE)
+biplot(temp_pca_train)
+
+ncol(temp_pca_train$CA$u)
+
+Scree_Plot_PCA <- temp_pca_train
+screeplot(Scree_Plot_PCA, type = "lines", bstick = TRUE)
 
 
+pca_summary <- summary(temp_pca_train)
+pca_result <- as.data.frame(pca_summary$cont)
+plot_data <- as.data.frame(t(pca_result[c("Cumulative Proportion"),]))
+plot_data$component <- rownames(plot_data)
+
+plot_data %>% 
+  filter(`Cumulative Proportion` <= 0.91) %>% 
+  tail(1)
 
 
+plot_data %>% 
+  filter(`Cumulative Proportion` <= 0.95)
+
+# Getting Principal Component Scores and Data Transformation
+
+pca_scores_17 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                                      choices = c(1:17), scaling = 0))
+
+matrix_mult_train_7 <- function (pca_scores_7)  {
+  as.matrix(norm.train[, -1]) %*% pca_scores_7
+}
+
+pca_train_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_train_7))
+pca_train_7 <- cbind(critical_temp=norm.train[, 1], pca_train_7)
 
 
+matrix_mult_train <- function (pca_scores_17)  {
+  as.matrix(dplyr::select(norm.train, -ERBB4_N)) %*% pca_scores_17
+}
+
+pca_train_17 <- as.data.frame(apply(pca_scores_17, 2, matrix_mult_train))
+pca_train_17 <- cbind(ERBB4_N=dplyr::select(norm.train, ERBB4_N), pca_train_17)
+
+# Test data transformation
+
+matrix_mult_test <- function (pca_scores_17)  {
+  as.matrix(dplyr::select(norm.test, -ERBB4_N)) %*% pca_scores_17
+}
+
+pca_test_17 <- as.data.frame(apply(pca_scores_17, 2, matrix_mult_test))
+pca_test_17 <- cbind(ERBB4_N=dplyr::select(norm.train, ERBB4_N), pca_test_17)
+
+# New linear regression after PCA
+
+model_after_pca_17 <- lm(ERBB4_N ~ ., data = pca_train_17)
+pca_model_summary_17 <- summary(model_after_pca_17)
+
+summary(model_after_pca_17)
+pca_test_17$new_ERBB4_N <- predict(model_after_pca_17, dplyr::select(pca_test_17, -ERBB4_N))
+
+## 3D plot
+
+pca_scores_3 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                                      choices = c(1:3), scaling = 0))
+
+plot(pca_scores_3)
+
+library(vegan3d)
+
+ordiplot3d(temp_pca_train, scaling = 3)
+
+pca_scores_3$PC1
 
 
-  
+install.packages("plot3D")
+library(plot3D)
+plot3D::scatter3D(pca_scores_3$PC1, pca_scores_3$PC2, pca_scores_3$PC3, theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab ="PC2", zlab = "PC3")
+
+# 
