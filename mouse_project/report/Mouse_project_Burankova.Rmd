@@ -22,6 +22,7 @@ options(scipen = 1, digits = 6)
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
+
 library(readxl)
 
 set.seed(1234)
@@ -96,20 +97,222 @@ Violin and box-plots for each protein (after standardization) are in `..\data\pl
 
 # Are there differences in the level of BDNF_N production depending on the class in the experiment?
 
+Delete Outliers using by Interquartile Range Rule and NA in each class.
+
 ```{r echo=FALSE}
-mouse %>% 
-  filter(!is.na(BDNF_N)) %>% 
-  group_by(class) %>% 
-  summarise(n_BDNF_N = n())
+na_df <- mouse %>% filter((is.na(BDNF_N)))
+mouse_BDNF_N <- mouse %>% filter((!is.na(BDNF_N)))
+na_df
+```
+
+
+```{r include=FALSE}
+## выбросы для каждого класса
+quants <- c(0, 0.25, 0.50, 0.75, 1)
+
+### 1
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-CS-m') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+  
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- mouse_BDNF_N %>% filter(class == 'c-CS-m' & !BDNF_N > quant[4,1] + iqr)
+mouse_wo_outl <- mouse_wo_outl %>% filter(class == 'c-CS-m' & !BDNF_N < quant[2,1] - iqr)
+
+### 2
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-CS-s') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-CS-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 3
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-SC-m') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-SC-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 4
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-SC-s') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-SC-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 5
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-CS-m') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-CS-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+
+### 6
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-CS-s') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-CS-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 7
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-SC-m') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-SC-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+
+### 8
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-SC-s') %>% 
+  select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-SC-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
 ```
 
 We have a sufficient number of observations to consider the distribution of BDNF_N variable as a normal distribution, which can be seen on the graph:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-ggplot(mouse, aes(BDNF_N, color=class)) +
-  geom_density() +
+mouse_wo_outl$class = as.factor(mouse_wo_outl$class)
+
+mouse_wo_outl %>% 
+  group_by(class) %>% 
+  summarise(n_BDNF_N = n())
+```
+
+We fit a linear regression model to the data and perform a Shapiro-Wilk statistical test to test the residuals for normality:
+
+```{r echo=FALSE}
+mod_BDNF <- lm(BDNF_N ~ class, data = mouse_wo_outl)
+summary(mod_BDNF)
+
+ggplot(mouse_wo_outl, aes(x = mod_BDNF$residuals)) +
+  geom_histogram(bins=30, fill = 'blue', alpha = 0.5, color = 'black') +
   theme_bw() +
-  labs(title="Boxplot for Protein in each class",
+  labs(title = 'Histogram of Residuals', 
+       x = 'Residuals', 
+       y = 'Frequency')
+
+spariro_res <- shapiro.test(mod_BDNF$residuals)
+```
+
+The residuals of the linear regression model is **normally distributed**. Shapiro-Wilk normality test p-value = `r round(spariro_res$p.value, 3)` (number of observations is `r mouse_wo_outl %>% summarise(n()) %>% .[1,1,1]`, W statistics is `r round(spariro_res$statistic, 3)`).
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = mouse_wo_outl,
+       aes(sample = mod_BDNF$residuals)) +
+  geom_qq() +
+  theme_bw() +
+  geom_qq_line(colour = "red") +
+  labs(title = "Quantile plot of residuals")
+
+
+ggplot(mod_BDNF, 
+       aes(x = class, y = .stdresid)) + 
+  geom_violin() + 
+  theme_bw() +
+  geom_boxplot(width = 0.1) + 
+  labs(title = "Plot of residuals",
+       x = "Experiment class",
+       y = 'St.d. of the residuals')
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(car)
+library(multcomp)
+```
+
+
+We accept it as possible to carry out one-way analysis of variance (one-way ANOVA).
+
+```{r}
+anova_test_BDNF <- Anova(mod_BDNF)
+```
+
+**The levels of BDNF_N production depend on the class in the experiment (F = `r anova_test_BDNF[[3]][1]`, p_value = `r anova_test_BDNF[[4]][1]` , df_1 = `r anova_test_BDNF[[2]][1]`, df_2 = `r anova_test_BDNF[[2]][2]`)**.
+
+## Perform the post-hoc (TUKEYS HSD)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+post_hoch_BDNF <- glht(mod_BDNF, linfct = mcp(class = "Tukey"))
+result_posthoch <- summary(post_hoch_BDNF)
+```
+
+To identify pairwise differences, the Tukey post-hock test was performed (df = `r result_posthoch$df`). 
+
+There are **statistically significant differences in the levels of BDNF_N production depend on the class in the experiment when pairwise comparison of the production of various class**:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+result_posthoch
+```
+
+Groups between which there was a statistically significant difference in BDNF_N protein production were marked with one \*, two ** and three ***:
+
+- the level of BDNF_N production in the experimental group **c-CS-m** is statistically significantly **higher** than the level of BDNF_N production in the
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[2]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[3]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[4]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[5]`),
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[6]`).
+
+- the level of BDNF_N production in the experimental group **c-CS-s** is statistically significantly **higher** than the level of BDNF_N production in the 
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[8]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[9]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[10]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[11]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[12]`).
+
+- the level of BDNF_N production in the experimental group **c-SC-m** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[14]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[15]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[17]`), 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[18]`).
+
+- the level of BDNF_N production in the experimental group **t-CS-s** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[26]`) 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[27]`).
+
+```{r echo=FALSE}
+ggplot(mouse_wo_outl, aes(y = BDNF_N, x = class)) +
+  geom_violin() +
+  stat_boxplot(geom ='errorbar', width=0.7) +
+  geom_boxplot(width=0.2) +
+  theme_bw() +
+  labs(title="Boxplot for BDNF_N Protein in each class",
        x ="Class")
 ```
 
