@@ -118,3 +118,15 @@ stand_mouse$class <- mouse$class
 
 lapply(num_cols_names, function_name)
 
+
+# Are there differences in the level of BDNF_N production depending on the class in the experiment?
+mouse %>% 
+  filter(!is.na(BDNF_N)) %>% 
+  group_by(class) %>% 
+  summarise(n = n())
+
+ggplot(mouse, aes(BDNF_N, color=class)) +
+  geom_density() +
+  theme_bw()
+
+

@@ -94,4 +94,23 @@ The **number of complete observations is `r mouse %>% filter_all(any_vars(is.na(
 
 Violin and box-plots for each protein (after standardization) are in `..\data\plots\` folder.
 
+# Are there differences in the level of BDNF_N production depending on the class in the experiment?
+
+```{r echo=FALSE}
+mouse %>% 
+  filter(!is.na(BDNF_N)) %>% 
+  group_by(class) %>% 
+  summarise(n_BDNF_N = n())
+```
+
+We have a sufficient number of observations to consider the distribution of BDNF_N variable as a normal distribution, which can be seen on the graph:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(mouse, aes(BDNF_N, color=class)) +
+  geom_density() +
+  theme_bw() +
+  labs(title="Boxplot for Protein in each class",
+       x ="Class")
+```
+
 
