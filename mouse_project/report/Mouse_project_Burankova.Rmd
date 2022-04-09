@@ -87,6 +87,18 @@ mouse %>%
   summarise(mice_count = n())
 ```
 
+Classes:
+- c-CS-s: control mice, stimulated to learn, injected with saline (9 mice)
+- c-CS-m: control mice, stimulated to learn, injected with memantine (10 mice)
+- c-SC-s: control mice, not stimulated to learn, injected with saline (9 mice)
+- c-SC-m: control mice, not stimulated to learn, injected with memantine (10 mice)
+
+- t-CS-s: trisomy mice, stimulated to learn, injected with saline (7 mice)
+- t-CS-m: trisomy mice, stimulated to learn, injected with memantine (9 mice)
+- t-SC-s: trisomy mice, not stimulated to learn, injected with saline (9 mice)
+- t-SC-m: trisomy mice, not stimulated to learn, injected with memantine (9 mice)
+
+
 There are mouses with **`r mouse %>% distinct(Genotype) %>% count() %>% .[1,1,1]` genotypes and `r mouse %>% distinct(Behavior) %>% count() %>% .[1,1,1]` behavior under `r mouse %>% distinct(Treatment) %>% count() %>% .[1,1,1]` types of treatment** in dataset:
 
 ```{r echo=FALSE, message=FALSE}
@@ -351,12 +363,7 @@ Remove columns with more than 100 NA's and after this - rows with NA.
 ```{r include=FALSE}
 mouse_naom <- mouse_naom %>% dplyr::select(-names(na_count[na_count > 100]))
 mouse_naom <- mouse_naom[rowSums(sapply(mouse_naom, function(y) is.na(y)), na.rm=TRUE) < 1,]
-```
-
-Delete character columns.
-
-```{r include=FALSE}
-mouse_naom <- mouse_naom %>% dplyr::select(where(is.numeric))
+mouse_naom <- mouse_naom %>% relocate(ERBB4_N, .after = last_col())
 ```
 
 There are `r nrow(mouse_naom)` rows and `r ncol(mouse_naom)` variables in the new data.
@@ -368,8 +375,11 @@ library(caTools)
 require(caret)
 
 sample = sample.split(mouse_naom$ERBB4_N, SplitRatio = .75)
-train = subset(mouse_naom, sample == TRUE)
-test  = subset(mouse_naom, sample == FALSE)
+train_all = subset(mouse_naom, sample == TRUE)
+test_all  = subset(mouse_naom, sample == FALSE)
+
+train <- train_all %>% dplyr::select(where(is.numeric))
+test <- test_all %>% dplyr::select(where(is.numeric))
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -448,10 +458,59 @@ temp_pca_train <- rda(dplyr::select(train, -ERBB4_N), scale = TRUE)
 ```
 
 ```{r echo=FALSE}
-biplot(temp_pca_train)
+biplot(temp_pca_train, scaling = 'species', display = 'species', main = 'Correlation biplot')
+
+biplot(temp_pca_train, 
+       scaling = 'sites', 
+       display = 'sites', 
+       main = 'Distance biplot (ordination plot)', 
+       type = 'points')
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_scores <- data.frame(dplyr::select(train_all, -ERBB4_N),
+                        scores(temp_pca_train, display = "sites", choices = c(1, 2, 3), scaling = "sites"))
+
+cl <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = class), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fst <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Treatment), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+sec <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Genotype), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+thr <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Behavior), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+library("gridExtra")
+grid.arrange(cl, fst, sec, thr, ncol = 2)
+
 ```
 
 There are `r ncol(temp_pca_train$CA$u)` principal components.
+
+```{r echo=FALSE}
+biplot(temp_pca_train, scaling = 'species', display = 'species')
+biplot(temp_pca_train, scaling = 'sites', display = 'sites')
+```
 
 Let's analyze the results using the eigenvalue plot:
 
@@ -505,7 +564,45 @@ pca_test_17 <- as.data.frame(apply(pca_scores_17, 2, matrix_mult_test))
 pca_test_17 <- cbind(ERBB4_N=dplyr::select(norm.train, ERBB4_N), pca_test_17)
 ```
 
-## 4.3. New linear regression after PCA
+## 4.3. Plot 3D plot (3 principal components)
+
+```{r echo=FALSE}
+library(vegan3d)
+
+ordiplot3d(temp_pca_train, scaling = 3)
+```
+
+```{r echo=FALSE}
+library(plot3D)
+
+df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$class,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice class")
+
+
+df_scores_plot$Behavior <- as.numeric(factor(df_scores_plot$Behavior, levels=unique(df_scores_plot$Behavior)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Behavior,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Behavior")
+
+
+df_scores_plot$Treatment <- as.numeric(factor(df_scores_plot$Treatment, levels=unique(df_scores_plot$Treatment)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Treatment,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Treatment")
+
+df_scores_plot$Genotype <- as.numeric(factor(df_scores_plot$Genotype, levels=unique(df_scores_plot$Genotype)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Genotype,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Genotype")
+```
+
+## 4.4. New linear regression after PCA
 
 ```{r echo=FALSE, max.height='400px'}
 model_after_pca_17 <- lm(ERBB4_N ~ ., data = pca_train_17)
@@ -523,20 +620,34 @@ MAE = `r mean(abs(pca_test_17$ERBB4_N - pca_test_17$new_ERBB4_N))`.
 
 According to the R-squared the model became a bit worse, and the MAE has grown too. 
 
-
-## 4.4. Plot 3D plot (3 principal components)
-
-```{r include=FALSE}
-library(vegan3d)
-
-ordiplot3d(temp_pca_train, scaling = 3)
-```
+## 4.5. Inspect New Linear model
 
 ```{r echo=FALSE}
-library(plot3D)
-plot3D::scatter3D(pca_scores_17$PC1, pca_scores_17$PC2, pca_scores_17$PC3, theta = 15, d = 2, phi = 16,
-                  xlab = "PC1", ylab ="PC2", zlab = "PC3")
+par(mfrow = c(2, 2))
+plot(model_after_pca_17)
+par(mfrow=c(1,1))
 ```
+
+Residuals vs Fitted plot - Linear relationship, that is good. 
+
+Normal Q-Q - the tails are observed to be ‘heavier’ (have larger values) than what we would expect under the standard modeling assumptions. It`s OK.
+
+Scale-Location plot - let's do Breusch Pagan Test to check for heteroskedasticity more formally:
+
+```{r include=FALSE}
+bptest(model)
+```
+
+Result: there is heteroskedasticity.
+
+Residuals vs Leverage (observations whose standardized residuals are greater than 3 in absolute value are possible outliers) - there are few influential observations, but no outliers.
+
+# 5. Search for differential proteins
+
+
+
+
+
 
 
 

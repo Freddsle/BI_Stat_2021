@@ -316,8 +316,7 @@ na_count[na_count > 100]
 
 mouse_naom <- mouse_naom %>% dplyr::select(-names(na_count[na_count > 100]))
 mouse_naom <- mouse_naom[rowSums(sapply(mouse_naom, function(y) is.na(y)), na.rm=TRUE) < 1,]
-
-mouse_naom <- mouse_naom %>% dplyr::select(where(is.numeric))
+mouse_naom <- mouse_naom %>% relocate(ERBB4_N, .after = last_col())
 
 ## Linear model
 # 2. Divide the data into training and test samples
@@ -326,8 +325,12 @@ library(caTools)
 require(caret)
 
 sample = sample.split(mouse_naom$ERBB4_N, SplitRatio = .75)
-train = subset(mouse_naom, sample == TRUE)
-test  = subset(mouse_naom, sample == FALSE)
+train_all = subset(mouse_naom, sample == TRUE)
+test_all  = subset(mouse_naom, sample == FALSE)
+
+train <- train_all %>% dplyr::select(where(is.numeric))
+test <- test_all %>% dplyr::select(where(is.numeric))
+
 
 # 3. Normalize the train and test data
 
@@ -374,7 +377,54 @@ bptest(model)
 library(vegan)
 
 temp_pca_train <- rda(dplyr::select(train, -ERBB4_N), scale = TRUE)
+
 biplot(temp_pca_train)
+biplot(temp_pca_train, scaling = 'species', display = 'species', main = 'Correlation biplot')
+
+biplot(temp_pca_train, scaling = 'species', display = 'species')
+biplot(temp_pca_train, scaling = 'sites', display = 'sites')
+
+biplot(temp_pca_train, 
+       scaling = 'sites', 
+       display = 'sites', 
+       main = 'Distance biplot (ordination plot)', 
+       type = 'points')
+
+
+df_scores <- data.frame(dplyr::select(train_all, -ERBB4_N),
+                        scores(temp_pca_train, display = "sites", choices = c(1, 2, 3), scaling = "sites"))
+
+cl <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = class), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fst <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Treatment), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+sec <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Genotype), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+thr <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Behavior), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+library("gridExtra")
+grid.arrange(cl, fst, sec, thr, ncol = 2)
+
 
 ncol(temp_pca_train$CA$u)
 
@@ -395,17 +445,11 @@ plot_data %>%
 plot_data %>% 
   filter(`Cumulative Proportion` <= 0.95)
 
+
 # Getting Principal Component Scores and Data Transformation
 
 pca_scores_17 <- as.data.frame(scores(temp_pca_train, display = "species", 
                                       choices = c(1:17), scaling = 0))
-
-matrix_mult_train_7 <- function (pca_scores_7)  {
-  as.matrix(norm.train[, -1]) %*% pca_scores_7
-}
-
-pca_train_7 <- as.data.frame(apply(pca_scores_7, 2, matrix_mult_train_7))
-pca_train_7 <- cbind(critical_temp=norm.train[, 1], pca_train_7)
 
 
 matrix_mult_train <- function (pca_scores_17)  {
@@ -432,23 +476,59 @@ pca_model_summary_17 <- summary(model_after_pca_17)
 summary(model_after_pca_17)
 pca_test_17$new_ERBB4_N <- predict(model_after_pca_17, dplyr::select(pca_test_17, -ERBB4_N))
 
+par(mfrow = c(2, 2))
+plot(model_after_pca_17)
+par(mfrow=c(1,1))
+
+bptest(model_after_pca_17)
+
 ## 3D plot
 
 pca_scores_3 <- as.data.frame(scores(temp_pca_train, display = "species", 
                                       choices = c(1:3), scaling = 0))
-
 plot(pca_scores_3)
 
 library(vegan3d)
 
 ordiplot3d(temp_pca_train, scaling = 3)
 
-pca_scores_3$PC1
 
-
-install.packages("plot3D")
 library(plot3D)
-plot3D::scatter3D(pca_scores_3$PC1, pca_scores_3$PC2, pca_scores_3$PC3, theta = 15, d = 2, phi = 16,
-                  xlab = "PC1", ylab ="PC2", zlab = "PC3")
 
-# 
+df_scores_plot <- df_scores
+
+df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$class,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice class")
+
+
+df_scores_plot$Behavior <- as.numeric(factor(df_scores_plot$Behavior, levels=unique(df_scores_plot$Behavior)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Behavior,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Behavior")
+
+df_scores_plot$Treatment <- as.numeric(factor(df_scores_plot$Treatment, levels=unique(df_scores_plot$Treatment)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Treatment,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Treatment")
+
+df_scores_plot$Genotype <- as.numeric(factor(df_scores_plot$Genotype, levels=unique(df_scores_plot$Genotype)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Genotype,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Genotype")
+
+# Search for differential proteins
+
+
+
+
+
+
+
+
+
