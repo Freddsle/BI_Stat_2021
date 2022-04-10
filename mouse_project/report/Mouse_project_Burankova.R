@@ -574,6 +574,11 @@ results_b <- decideTests(fit_b, adjust.method="fdr", p=0.05)
 s_res_b <- summary(results_b)[, 2]
 s_res_b
 
+results_b <- data.frame(results_b)
+a <- dplyr::filter(results_b, `C.S` == 1)
+rownames(a)
+
+
 
 # Tratment
 
@@ -586,6 +591,10 @@ de_t_result <- filter(gene_t_list, adj.P.Val <= 0.05)
 results_t <- decideTests(fit_t, adjust.method="fdr", p=0.05)
 s_res_t <- summary(results_t)[, 2]
 s_res_t
+
+results_t <- data.frame(results_t)
+a <- dplyr::filter(results_t, `Memantine` == 1)
+rownames(a)
 
 
 # Genotype

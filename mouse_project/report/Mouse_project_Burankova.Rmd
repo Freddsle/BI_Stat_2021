@@ -703,7 +703,21 @@ s_res_b
 
 ```
 
-When mouse are stimulated to learn, `r s_res_b[1]` proteins are downregulated, and `r s_res_b[3]` are upregulated.
+**When mouse are stimulated to learn, `r s_res_b[1]` proteins are downregulated, and `r s_res_b[3]` are upregulated.**
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_b <- data.frame(results_b)
+a <- dplyr::filter(results_b, `C.S` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_b, `C.S` == -1)
+rownames(a)
+```
+
 
 ## 5.2. Treatment
 
@@ -723,7 +737,20 @@ s_res_t
 
 ```
 
-When mouse are received memantine, `r s_res_t[1]` proteins are down-regulated, and `r s_res_t[3]` are up-regulated.
+**When mouse are received memantine, `r s_res_t[1]` proteins are down-regulated, and `r s_res_t[3]` are up-regulated.**
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_t <- data.frame(results_t)
+a <- dplyr::filter(results_t, `Memantine` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_t, `Memantine` == -1)
+rownames(a)
+```
 
 ## 5.3. Genotype
 
@@ -743,7 +770,21 @@ s_res_g
 
 ```
 
-When mouse have Ts65Dn genotype, `r s_res_g[1]` proteins are down-regulated, and `r s_res_g[3]` are up-regulated.
+**When mouse have Ts65Dn genotype, `r s_res_g[1]` proteins are down-regulated, and `r s_res_g[3]` are up-regulated.**
+
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_g <- data.frame(results_g)
+a <- dplyr::filter(results_g, `Ts65Dn` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_g, `Ts65Dn` == -1)
+rownames(a)
+```
 
 ## 5.4. Class
 
@@ -758,14 +799,14 @@ gene_c_list <- topTable(fit_c, n = 72)
 de_c_result <- filter(gene_c_list, adj.P.Val <= 0.05)
 
 results_c <- decideTests(fit_c, adjust.method="fdr", p=0.05)
-summary(results_c)
 
 s_res_c <- summary(results_c)
 pivot_wider(data.frame(s_res_c[, 2:8]), names_from = Var1, values_from = Freq)
 ```
 
-Up- and -down-regulated proteins are in the table.
+Number of up- and -down-regulated proteins are in the table.
 
+# 6. Summary
 
 
 
