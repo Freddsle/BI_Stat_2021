@@ -497,7 +497,7 @@ library(plot3D)
 
 df_scores_plot <- df_scores
 
-df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot)))
+df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot$class)))
 plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
                   colvar = df_scores_plot$class,
                   theta = 15, d = 2, phi = 16,
@@ -522,13 +522,96 @@ plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3,
                   theta = 15, d = 2, phi = 16,
                   xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Genotype")
 
+
+
+
+
+
 # Search for differential proteins
 
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("limma")
+
+library(limma)
+
+mouse_naom_de <- mouse_naom
+#mouse_naom_de_t <- data.frame(t(mouse_naom_de[, -c(1, 73:76)]))
+mouse_naom_de_t <- data.frame(t(mouse_naom_de %>% dplyr::select(where(is.numeric))))
+
+mouse_naom_de$class <- factor(mouse_naom_de$class, 
+                              levels = c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s"))
+mouse_naom_de$Treatment <- factor(mouse_naom_de$Treatment, levels = c("Saline", "Memantine"))
+mouse_naom_de$Behavior <- factor(mouse_naom_de$Behavior, levels = c("S/C", "C/S"))
+mouse_naom_de$Genotype <- as.factor(mouse_naom_de$Genotype)
+
+design_c <- model.matrix(~ mouse_naom_de$class)
+design_g <- model.matrix(~ mouse_naom_de$Genotype)
+design_t <- model.matrix(~ mouse_naom_de$Treatment)
+design_b  <- model.matrix(~ mouse_naom_de$Behavior)
+
+samples <- c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s")
+colnames(design_c) <- samples
+
+samples <- c("Control", "Ts65Dn")
+colnames(design_g) <- samples
+
+samples <- c("Saline", "Memantine")
+colnames(design_t) <- samples
+
+samples <- c("S/C", "C/S")
+colnames(design_b) <- samples
+
+## Behavior
+fit_b <- lmFit(mouse_naom_de_t, design_b)
+
+fit_b <- eBayes(fit_b)
+gene_b_list <- topTable(fit_b, n = 72)
+de_b_result <- filter(gene_b_list, adj.P.Val <= 0.05)
+
+results_b <- decideTests(fit_b, adjust.method="fdr", p=0.05)
+s_res_b <- summary(results_b)[, 2]
+s_res_b
 
 
+# Tratment
+
+fit_t <- lmFit(mouse_naom_de_t, design_t)
+
+fit_t <- eBayes(fit_t)
+gene_t_list <- topTable(fit_t, n = 72)
+de_t_result <- filter(gene_t_list, adj.P.Val <= 0.05)
+
+results_t <- decideTests(fit_t, adjust.method="fdr", p=0.05)
+s_res_t <- summary(results_t)[, 2]
+s_res_t
 
 
+# Genotype
+fit_g <- lmFit(mouse_naom_de_t, design_g)
+
+fit_g <- eBayes(fit_g)
+gene_g_list <- topTable(fit_g, n = 72)
+de_g_result <- filter(gene_g_list, adj.P.Val <= 0.05)
+
+results_g <- decideTests(fit_g, adjust.method="fdr", p=0.05)
+s_res_g <- summary(results_g)[, 2]
+s_res_g
 
 
+# Class
+fit_c <- lmFit(mouse_naom_de_t, design_c)
+fit_c <- eBayes(fit_c)
 
+gene_c_list <- topTable(fit_c, n = 72)
+de_c_result <- filter(gene_c_list, adj.P.Val <= 0.05)
+
+results_c <- decideTests(fit_c, adjust.method="fdr", p=0.05)
+summary(results_c)
+
+s_res_c <- summary(results_c)
+s_res_c[, 2:8]
+
+pivot_wider(data.frame(s_res_c[, 2:8]), names_from = Var1, values_from = Freq)
 

@@ -88,15 +88,15 @@ mouse %>%
 ```
 
 Classes:
-- c-CS-s: control mice, stimulated to learn, injected with saline (9 mice)
-- c-CS-m: control mice, stimulated to learn, injected with memantine (10 mice)
-- c-SC-s: control mice, not stimulated to learn, injected with saline (9 mice)
-- c-SC-m: control mice, not stimulated to learn, injected with memantine (10 mice)
+- c-CS-s: control mice, stimulated to learn, injected with saline
+- c-CS-m: control mice, stimulated to learn, injected with memantine 
+- c-SC-s: control mice, not stimulated to learn, injected with saline 
+- c-SC-m: control mice, not stimulated to learn, injected with memantine
 
-- t-CS-s: trisomy mice, stimulated to learn, injected with saline (7 mice)
-- t-CS-m: trisomy mice, stimulated to learn, injected with memantine (9 mice)
-- t-SC-s: trisomy mice, not stimulated to learn, injected with saline (9 mice)
-- t-SC-m: trisomy mice, not stimulated to learn, injected with memantine (9 mice)
+- t-CS-s: trisomy mice, stimulated to learn, injected with saline 
+- t-CS-m: trisomy mice, stimulated to learn, injected with memantine 
+- t-SC-s: trisomy mice, not stimulated to learn, injected with saline 
+- t-SC-m: trisomy mice, not stimulated to learn, injected with memantine
 
 
 There are mouses with **`r mouse %>% distinct(Genotype) %>% count() %>% .[1,1,1]` genotypes and `r mouse %>% distinct(Behavior) %>% count() %>% .[1,1,1]` behavior under `r mouse %>% distinct(Treatment) %>% count() %>% .[1,1,1]` types of treatment** in dataset:
@@ -366,6 +366,13 @@ mouse_naom <- mouse_naom[rowSums(sapply(mouse_naom, function(y) is.na(y)), na.rm
 mouse_naom <- mouse_naom %>% relocate(ERBB4_N, .after = last_col())
 ```
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mouse_naom %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype) %>% 
+  summarise('Records count' = n())
+```
+
 There are `r nrow(mouse_naom)` rows and `r ncol(mouse_naom)` variables in the new data.
 
 ## 3.1. Divide the data into training and test samples and Normalize
@@ -575,7 +582,9 @@ ordiplot3d(temp_pca_train, scaling = 3)
 ```{r echo=FALSE}
 library(plot3D)
 
-df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot)))
+df_scores_plot <- df_scores
+
+df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot$class)))
 plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
                   colvar = df_scores_plot$class,
                   theta = 15, d = 2, phi = 16,
@@ -600,6 +609,7 @@ plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3,
                   colvar = df_scores_plot$Genotype,
                   theta = 15, d = 2, phi = 16,
                   xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Genotype")
+
 ```
 
 ## 4.4. New linear regression after PCA
@@ -642,11 +652,119 @@ Result: there is heteroskedasticity.
 
 Residuals vs Leverage (observations whose standardized residuals are greater than 3 in absolute value are possible outliers) - there are few influential observations, but no outliers.
 
-# 5. Search for differential proteins
+# 5. Search for differential proteins Using limma
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(limma)
+
+mouse_naom_de <- mouse_naom
+mouse_naom_de_t <- data.frame(t(mouse_naom_de %>% dplyr::select(where(is.numeric))))
+
+mouse_naom_de$class <- factor(mouse_naom_de$class, 
+                              levels = c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s"))
+mouse_naom_de$Treatment <- factor(mouse_naom_de$Treatment, levels = c("Saline", "Memantine"))
+mouse_naom_de$Behavior <- factor(mouse_naom_de$Behavior, levels = c("S/C", "C/S"))
+mouse_naom_de$Genotype <- as.factor(mouse_naom_de$Genotype)
+
+design_c <- model.matrix(~ mouse_naom_de$class)
+design_g <- model.matrix(~ mouse_naom_de$Genotype)
+design_t <- model.matrix(~ mouse_naom_de$Treatment)
+design_b  <- model.matrix(~ mouse_naom_de$Behavior)
+
+samples <- c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s")
+colnames(design_c) <- samples
+
+samples <- c("Control", "Ts65Dn")
+colnames(design_g) <- samples
+
+samples <- c("Saline", "Memantine")
+colnames(design_t) <- samples
+
+samples <- c("S/C", "C/S")
+colnames(design_b) <- samples
+```
+
+Expression levels for `r nrow(mouse_naom_de_t)` proteins were assessed.
+
+## 5.1. Behavior
+
+Let's determine how many proteins changed their expression during "stimulation to learning". `SC` was a baseline.
+
+```{r echo=FALSE}
+fit_b <- lmFit(mouse_naom_de_t, design_b)
+
+fit_b <- eBayes(fit_b)
+gene_b_list <- topTable(fit_b, n = 72)
+de_b_result <- filter(gene_b_list, adj.P.Val <= 0.05)
+
+results_b <- decideTests(fit_b, adjust.method="fdr", p=0.05)
+s_res_b <- summary(results_b)[, 2]
+s_res_b
+
+```
+
+When mouse are stimulated to learn, `r s_res_b[1]` proteins are downregulated, and `r s_res_b[3]` are upregulated.
+
+## 5.2. Treatment
+
+Let's determine how many proteins changed their expression when mice received memantine. `Saline` was a baseline.
 
 
+```{r echo=FALSE}
+fit_t <- lmFit(mouse_naom_de_t, design_t)
+
+fit_t <- eBayes(fit_t)
+gene_t_list <- topTable(fit_t, n = 72)
+de_t_result <- filter(gene_t_list, adj.P.Val <= 0.05)
+
+results_t <- decideTests(fit_t, adjust.method="fdr", p=0.05)
+s_res_t <- summary(results_t)[, 2]
+s_res_t
+
+```
+
+When mouse are received memantine, `r s_res_t[1]` proteins are down-regulated, and `r s_res_t[3]` are up-regulated.
+
+## 5.3. Genotype
+
+Let's determine how many proteins changed their expression for Ts65Dn mouses. `Control` was a baseline.
 
 
+```{r echo=FALSE}
+fit_g <- lmFit(mouse_naom_de_t, design_g)
+
+fit_g <- eBayes(fit_g)
+gene_g_list <- topTable(fit_g, n = 72)
+de_g_result <- filter(gene_g_list, adj.P.Val <= 0.05)
+
+results_g <- decideTests(fit_g, adjust.method="fdr", p=0.05)
+s_res_g <- summary(results_g)[, 2]
+s_res_g
+
+```
+
+When mouse have Ts65Dn genotype, `r s_res_g[1]` proteins are down-regulated, and `r s_res_g[3]` are up-regulated.
+
+## 5.4. Class
+
+Let's determine how class affected protein expression levels. `c-SC-s` was a baseline.
+
+```{r echo=FALSE}
+fit_c <- lmFit(mouse_naom_de_t, design_c)
+
+fit_c <- eBayes(fit_c)
+
+gene_c_list <- topTable(fit_c, n = 72)
+de_c_result <- filter(gene_c_list, adj.P.Val <= 0.05)
+
+results_c <- decideTests(fit_c, adjust.method="fdr", p=0.05)
+summary(results_c)
+
+s_res_c <- summary(results_c)
+pivot_wider(data.frame(s_res_c[, 2:8]), names_from = Var1, values_from = Freq)
+```
+
+Up- and -down-regulated proteins are in the table.
 
 
 
