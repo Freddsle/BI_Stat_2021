@@ -16,4 +16,9 @@ More information in the corresponding folder.
 Practice with Principal component analysis (PCA) and Linear regression, also plot t-SNE and UMAP plots.
 More information in the corresponding folder.
 
+## 4. Practice with Principal component analysis (PCA), Linear models and search for differential proteins
+
+Practice with Principal component analysis (PCA), Linear models and search for differential proteins analysis Using limma.
+More information in the corresponding folder.
+
 
