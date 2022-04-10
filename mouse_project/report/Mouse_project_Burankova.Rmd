@@ -1,0 +1,923 @@
+---
+title: "Mouse_project_Burankova"
+author: "Y.P. Burankova"
+date: '2022-04-07'
+output: 
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 6)
+```
+
+```{r, include=FALSE}
+options(width = 60)
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+```
+
+
+
+```{r, echo = F, message = F, warning = F, include = F}
+if (!require('tidyverse')){
+  install.packages('tidyverse')
+}
+if (!require('car')){
+  install.packages('car')
+}
+if (!require('multcomp')){
+  install.packages('multcomp')
+}
+if (!require('readxl')){
+  install.packages('readxl')
+}
+if (!require('vegan')){
+  install.packages('vegan')
+}
+if (!require('scatterplot3d')){
+  install.packages('scatterplot3d')
+}
+if (!require('gridExtra')){
+  install.packages('gridExtra')
+}
+if (!require('caTools')){
+  install.packages('caTools')
+}
+if (!require('caret')){
+  install.packages('caret')
+}
+if (!require('lmtest')){
+  install.packages('lmtest')
+}
+if (!require('vegan3d')){
+  install.packages('vegan3d')
+}
+if (!require('plot3D')){
+  install.packages('plot3D')
+}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!require('limma')){
+  BiocManager::install("limma")
+}
+```
+
+# 1. Import and EDA
+
+## 1.1. Import required library
+
+**tidyverse** library ver. 1.3.1 is used for processing data.\
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+
+library(readxl)
+
+set.seed(1234)
+```
+
+This library include all required libraries:\
+- **ggplot2** 3.3.5, for data visualization.\
+- **dplyr** 1.0.8, for data manipulation.\
+- **tidyr** 1.2.0, for data tidying.\
+- **readr** 2.1.2, for data import.\
+- **purrr** 0.3.4, for functional programming.
+
+as well as tibble ver. 3.1.6, stringr ver 1.4.0, ver. forcats 0.5.1.
+
+Also `readxl` used for read .xls files.
+
+For data processing and analysis `car`, `caTools`, `caret`, `lmtest`, `multcomp`, `vegan`, `vegan3d`, `plot3D`, `scatterplot3d`, `gridExtra`, and `limma` were used.
+
+## 1.2. Import .xls data
+
+We load data from all `.xls` into one variable.
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mouse <-
+  list.files(path = "../data/", pattern = "*.xls", full.names = TRUE) %>% 
+  map_df(~read_excel(.))
+```
+`.xls` files with raw data should be placed in `./data/` folder.
+
+The data:
+```{r echo=FALSE}
+head(mouse)
+```
+
+## 1.3. Data description
+
+There are `r nrow(mouse)` rows and `r ncol(mouse)` variables in the data.
+
+```{r include=FALSE}
+number_mice <- mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  distinct(MouseID) %>% 
+  count() %>% .[1,1,1]
+```
+
+**There are `r number_mice` mice** in experiment. All mouses belongs to one **of `r mouse %>% distinct(class) %>% count() %>% .[1,1,1]` classes**:
+
+```{r echo=FALSE}
+mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(class) %>% 
+  summarise(mice_count = n())
+```
+
+Classes:
+- c-CS-s: control mice, stimulated to learn, injected with saline
+- c-CS-m: control mice, stimulated to learn, injected with memantine 
+- c-SC-s: control mice, not stimulated to learn, injected with saline 
+- c-SC-m: control mice, not stimulated to learn, injected with memantine
+
+- t-CS-s: trisomy mice, stimulated to learn, injected with saline 
+- t-CS-m: trisomy mice, stimulated to learn, injected with memantine 
+- t-SC-s: trisomy mice, not stimulated to learn, injected with saline 
+- t-SC-m: trisomy mice, not stimulated to learn, injected with memantine
+
+
+There are mouses with **`r mouse %>% distinct(Genotype) %>% count() %>% .[1,1,1]` genotypes and `r mouse %>% distinct(Behavior) %>% count() %>% .[1,1,1]` behavior under `r mouse %>% distinct(Treatment) %>% count() %>% .[1,1,1]` types of treatment** in dataset:
+
+```{r echo=FALSE, message=FALSE}
+mouse %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype, class) %>% 
+  summarise('Records count' = n())
+```
+
+If we drop rows with NA in any column:
+
+```{r echo=FALSE, message=FALSE}
+mouse %>% filter_all(any_vars(is.na(.))) %>%  
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype, class) %>% 
+  summarise('Records count' = n())
+```
+
+When deleting rows with missing values, the data is **not balanced across groups**. In two cases, the control group is twice as large as the group of trisomic mice. When counted with rows with missing values, the data is **more or less balanced**. 
+
+The **number of complete observations is `r mouse %>% filter_all(any_vars(is.na(.))) %>% count() %>% .[1,1,1]`** (there are `r mouse %>% count() %>% .[1,1,1]` observations in total).
+
+Violin and box-plots for each protein (after standardization) are in `..\data\plots\` folder.
+
+# 2. Are there differences in the level of BDNF_N production depending on the class in the experiment?
+
+Delete Outliers using by Interquartile Range Rule and NA in each class.
+
+```{r echo=FALSE}
+na_df <- mouse %>% filter((is.na(BDNF_N)))
+mouse_BDNF_N <- mouse %>% filter((!is.na(BDNF_N)))
+na_df
+```
+
+```{r include=FALSE}
+## выбросы для каждого класса
+quants <- c(0, 0.25, 0.50, 0.75, 1)
+
+### 1
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-CS-m') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+  
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- mouse_BDNF_N %>% filter(class == 'c-CS-m' & !BDNF_N > quant[4,1] + iqr)
+mouse_wo_outl <- mouse_wo_outl %>% filter(class == 'c-CS-m' & !BDNF_N < quant[2,1] - iqr)
+
+### 2
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-CS-s') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-CS-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 3
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-SC-m') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-SC-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 4
+quant <- mouse_BDNF_N %>% 
+  filter(class == 'c-SC-s') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 'c-SC-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 5
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-CS-m') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-CS-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+
+### 6
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-CS-s') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-CS-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+### 7
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-SC-m') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-SC-m' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+
+### 8
+quant <- mouse_BDNF_N %>% 
+  filter(class == 't-SC-s') %>% 
+  dplyr::select(BDNF_N) %>%  
+  apply(., 2, quantile, probs = quants) 
+
+iqr <- (quant[4,1] - quant[2,1]) * 1.75
+
+mouse_wo_outl <- rbind(mouse_wo_outl, mouse_BDNF_N %>% 
+                         filter(class == 't-SC-s' & !(BDNF_N < (quant[2,1] - iqr) | BDNF_N > quant[4,1] + iqr)))
+
+```
+
+We have a sufficient number of observations to consider the distribution of BDNF_N variable as a normal distribution, which can be seen on the graph:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mouse_wo_outl$class = as.factor(mouse_wo_outl$class)
+
+mouse_wo_outl %>% 
+  group_by(class) %>% 
+  summarise(n_BDNF_N = n())
+```
+
+We fit a linear regression model to the data and perform a Shapiro-Wilk statistical test to test the residuals for normality:
+
+```{r echo=FALSE}
+mod_BDNF <- lm(BDNF_N ~ class, data = mouse_wo_outl)
+summary(mod_BDNF)
+
+ggplot(mouse_wo_outl, aes(x = mod_BDNF$residuals)) +
+  geom_histogram(bins=30, fill = 'blue', alpha = 0.5, color = 'black') +
+  theme_bw() +
+  labs(title = 'Histogram of Residuals', 
+       x = 'Residuals', 
+       y = 'Frequency')
+
+spariro_res <- shapiro.test(mod_BDNF$residuals)
+```
+
+The residuals of the linear regression model is **normally distributed**. Shapiro-Wilk normality test p-value = `r round(spariro_res$p.value, 3)` (number of observations is `r mouse_wo_outl %>% summarise(n()) %>% .[1,1,1]`, W statistics is `r round(spariro_res$statistic, 3)`).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = mouse_wo_outl,
+       aes(sample = mod_BDNF$residuals)) +
+  geom_qq() +
+  theme_bw() +
+  geom_qq_line(colour = "red") +
+  labs(title = "Quantile plot of residuals")
+
+
+ggplot(mod_BDNF, 
+       aes(x = class, y = .stdresid)) + 
+  geom_violin() + 
+  theme_bw() +
+  geom_boxplot(width = 0.1) + 
+  labs(title = "Plot of residuals",
+       x = "Experiment class",
+       y = 'St.d. of the residuals')
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(car)
+library(multcomp)
+```
+
+We accept it as possible to carry out one-way analysis of variance (one-way ANOVA).
+
+```{r}
+anova_test_BDNF <- Anova(mod_BDNF)
+```
+
+**The levels of BDNF_N production depend on the class in the experiment (F = `r anova_test_BDNF[[3]][1]`, p_value = `r anova_test_BDNF[[4]][1]` , df_1 = `r anova_test_BDNF[[2]][1]`, df_2 = `r anova_test_BDNF[[2]][2]`)**.
+
+## 2.1. Perform the post-hoc (TUKEYS HSD)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+post_hoch_BDNF <- glht(mod_BDNF, linfct = mcp(class = "Tukey"))
+result_posthoch <- summary(post_hoch_BDNF)
+```
+
+To identify pairwise differences, the Tukey post-hock test was performed (df = `r result_posthoch$df`). 
+
+There are **statistically significant differences in the levels of BDNF_N production depend on the class in the experiment when pairwise comparison of the production of various class**:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, max.height='400px'}
+result_posthoch
+```
+
+Groups between which there was a statistically significant difference in BDNF_N protein production were marked with one \*, two ** and three ***:
+
+- the level of BDNF_N production in the experimental group **c-CS-m** is statistically significantly **higher** than the level of BDNF_N production in the
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[2]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[3]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[4]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[5]`),
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[6]`).
+
+- the level of BDNF_N production in the experimental group **c-CS-s** is statistically significantly **higher** than the level of BDNF_N production in the 
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[8]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[9]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[10]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[11]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[12]`).
+
+- the level of BDNF_N production in the experimental group **c-SC-m** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[14]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[15]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[17]`), 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[18]`).
+
+- the level of BDNF_N production in the experimental group **t-CS-s** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[26]`) 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[27]`).
+
+```{r echo=FALSE}
+ggplot(mouse_wo_outl, aes(y = BDNF_N, x = class)) +
+  geom_violin() +
+  stat_boxplot(geom ='errorbar', width=0.7) +
+  geom_boxplot(width=0.2) +
+  theme_bw() +
+  labs(title="Boxplot for BDNF_N Protein in each class",
+       x ="Class")
+```
+
+# 3. Linear model for ERBB4_N
+
+Delete rows with many NA:
+```{r echo=FALSE}
+df1 <- sapply(mouse, function(y) is.na(y))
+mouse[rowSums(df1, na.rm=TRUE) > 20,]
+```
+
+```{r include=FALSE}
+mouse_naom <- mouse[rowSums(df1, na.rm=TRUE) < 20,]
+```
+
+Count NA's in each column and return column names which contains NA's (with a number of Na's):
+```{r echo=FALSE}
+na_count <- sapply(mouse_naom, function(y) sum(length(which(is.na(y)))))
+na_count[na_count > 1]
+```
+
+Remove columns with more than 100 NA's and after this - rows with NA.
+```{r include=FALSE}
+mouse_naom <- mouse_naom %>% dplyr::select(-names(na_count[na_count > 100]))
+mouse_naom <- mouse_naom[rowSums(sapply(mouse_naom, function(y) is.na(y)), na.rm=TRUE) < 1,]
+mouse_naom <- mouse_naom %>% relocate(ERBB4_N, .after = last_col())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mouse_naom %>%
+  separate(MouseID, c("MouseID", "NumberExperiment"), "_") %>% 
+  group_by(Treatment, Behavior, Genotype) %>% 
+  summarise('Records count' = n())
+```
+
+There are `r nrow(mouse_naom)` rows and `r ncol(mouse_naom)` variables in the new data.
+
+## 3.1. Divide the data into training and test samples and Normalize
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(caTools)
+require(caret)
+
+sample = sample.split(mouse_naom$ERBB4_N, SplitRatio = .75)
+train_all = subset(mouse_naom, sample == TRUE)
+test_all  = subset(mouse_naom, sample == FALSE)
+
+train <- train_all %>% dplyr::select(where(is.numeric))
+test <- test_all %>% dplyr::select(where(is.numeric))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+norm.train <- train
+temp <- scale(train[, -1])
+norm.train[, -1] <- temp
+
+normParam <- caret::preProcess(train[, -1])
+norm.test <- predict(normParam, test)
+```
+
+## 3.2. Linear model
+
+```{r echo=FALSE, max.height='400px'}
+model <- lm(ERBB4_N ~ ., data = norm.train)
+model_summary <- summary(model)
+
+model_summary
+```
+
+Residual standard error: `r round(sd(model_summary$residuals), 3)` on `r nrow(table(model_summary$residuals)) - ncol(norm.test) + 1` degrees of freedom
+
+Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`.
+
+F-statistic:  `r round(model_summary$fstatistic, 0)[1]` on `r round(model_summary$fstatistic, 0)[2]` and `r round(model_summary$fstatistic, 0)[3]` DF,  p-value: <2e-16.
+
+## 3.3. Inspect Linear model
+
+```{r echo=FALSE}
+par(mfrow = c(2, 2))
+plot(model)
+par(mfrow=c(1,1))
+```
+
+Residuals vs Fitted plot - Linear relationship, that is good. 
+
+Normal Q-Q - the tails are observed to be ‘heavier’ (have larger values) than what we would expect under the standard modeling assumptions. It`s OK.
+
+Scale-Location plot - let's do Breusch Pagan Test to check for heteroskedasticity more formally:
+
+```{r include=FALSE}
+library(lmtest)
+bptest(model)
+```
+
+Result: as expected, there is heteroskedasticity.
+
+Residuals vs Leverage (observations whose standardized residuals are greater than 3 in absolute value are possible outliers) - there are few influential observations, but no outliers.
+
+## 3.4. Prediction?
+
+```{r echo=TRUE, message=TRUE, warning=TRUE}
+pred_y_lm <-  predict(model, dplyr::select(norm.test, -ERBB4_N))
+```
+
+Warning can tell us us about multi-collinearity in data. It can lead to a rank deficient matrix in logistic regression. We can try applying PCA to tackle the multi-collinearity issue and then apply logistic regression afterwards.
+
+MAE = `r mean(abs(norm.test$ERBB4_N - pred_y_lm))`. The model contains too many predictors and some problems, it might be better.
+
+## 3.5. Linear model conclusion
+
+The model contains **too many predictors**, **heteroskedasticity**, and also **multi-collinearity in data** so it might be better.
+
+# 4. PCA
+
+```{r include=FALSE}
+library(vegan)
+```
+
+## 4.1. Run PCA on all train set
+
+Run principal components analysis on all train set.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+temp_pca_train <- rda(dplyr::select(train, -ERBB4_N), scale = TRUE)
+```
+
+```{r echo=FALSE}
+biplot(temp_pca_train, scaling = 'species', display = 'species', main = 'Correlation biplot')
+
+biplot(temp_pca_train, 
+       scaling = 'sites', 
+       display = 'sites', 
+       main = 'Distance biplot (ordination plot)', 
+       type = 'points')
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_scores <- data.frame(dplyr::select(train_all, -ERBB4_N),
+                        scores(temp_pca_train, display = "sites", choices = c(1, 2, 3), scaling = "sites"))
+
+cl <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = class), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fst <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Treatment), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+sec <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Genotype), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+thr <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes(color = Behavior), alpha = 0.5) +
+  coord_equal(xlim = c(-1.1, 1.1), ylim = c(-1, 1)) + 
+  ggtitle(label = "Principal component axis ordination") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+library("gridExtra")
+grid.arrange(cl, fst, sec, thr, ncol = 2)
+
+```
+
+There are `r ncol(temp_pca_train$CA$u)` principal components.
+
+```{r echo=FALSE}
+biplot(temp_pca_train, scaling = 'species', display = 'species')
+biplot(temp_pca_train, scaling = 'sites', display = 'sites')
+```
+
+Let's analyze the results using the eigenvalue plot:
+
+```{r echo=FALSE}
+Scree_Plot_PCA <- temp_pca_train
+screeplot(Scree_Plot_PCA, type = "lines", bstick = TRUE)
+```
+
+You can see that there are maybe enough 7 principal components.
+
+The Cumulative Proportion from summary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pca_summary <- summary(temp_pca_train)
+pca_result <- as.data.frame(pca_summary$cont)
+plot_data <- as.data.frame(t(pca_result[c("Cumulative Proportion"),]))
+plot_data$component <- rownames(plot_data)
+
+plot_data
+```
+
+90% of the variability can be explained by 17 main components.
+Let's try to apply 17 main components to building a linear model.
+
+## 4.2. Getting Principal Component Scores and Data Transformation
+
+Getting Principal Component Scores and Train data transformation.
+
+```{r include=FALSE}
+pca_scores_17 <- as.data.frame(scores(temp_pca_train, display = "species", 
+                     choices = c(1:17), scaling = 0))
+```
+
+```{r include=FALSE}
+matrix_mult_train <- function (pca_scores_17)  {
+  as.matrix(dplyr::select(norm.train, -ERBB4_N)) %*% pca_scores_17
+}
+
+pca_train_17 <- as.data.frame(apply(pca_scores_17, 2, matrix_mult_train))
+pca_train_17 <- cbind(ERBB4_N=dplyr::select(norm.train, ERBB4_N), pca_train_17)
+```
+
+Test data transformation.
+
+```{r include=FALSE}
+matrix_mult_test <- function (pca_scores_17)  {
+  as.matrix(dplyr::select(norm.test, -ERBB4_N)) %*% pca_scores_17
+}
+
+pca_test_17 <- as.data.frame(apply(pca_scores_17, 2, matrix_mult_test))
+pca_test_17 <- cbind(ERBB4_N=dplyr::select(norm.train, ERBB4_N), pca_test_17)
+```
+
+## 4.3. Plot 3D plot (3 principal components)
+
+```{r echo=FALSE}
+library(vegan3d)
+
+ordiplot3d(temp_pca_train, scaling = 3)
+```
+
+```{r echo=FALSE}
+library(plot3D)
+
+df_scores_plot <- df_scores
+
+df_scores_plot$class <- as.numeric(factor(df_scores_plot$class, levels=unique(df_scores_plot$class)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$class,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice class")
+
+
+df_scores_plot$Behavior <- as.numeric(factor(df_scores_plot$Behavior, levels=unique(df_scores_plot$Behavior)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Behavior,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Behavior")
+
+
+df_scores_plot$Treatment <- as.numeric(factor(df_scores_plot$Treatment, levels=unique(df_scores_plot$Treatment)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Treatment,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Treatment")
+
+df_scores_plot$Genotype <- as.numeric(factor(df_scores_plot$Genotype, levels=unique(df_scores_plot$Genotype)))
+plot3D::scatter3D(df_scores_plot$PC1, df_scores_plot$PC2, df_scores_plot$PC3, 
+                  colvar = df_scores_plot$Genotype,
+                  theta = 15, d = 2, phi = 16,
+                  xlab = "PC1", ylab = "PC2", zlab = "PC3", main = "Observations colored by mice Genotype")
+
+```
+
+## 4.4. New linear regression after PCA
+
+```{r echo=FALSE, max.height='400px'}
+model_after_pca_17 <- lm(ERBB4_N ~ ., data = pca_train_17)
+pca_model_summary_17 <- summary(model_after_pca_17)
+
+summary(model_after_pca_17)
+pca_test_17$new_ERBB4_N <- predict(model_after_pca_17, dplyr::select(pca_test_17, -ERBB4_N))
+```
+
+R-squared:  `r pca_model_summary_17$r.squared`, Adjusted R-squared: `r pca_model_summary_17$adj.r.squared`.
+
+(without PCA it was multiple R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`.)
+
+MAE = `r mean(abs(pca_test_17$ERBB4_N - pca_test_17$new_ERBB4_N))`.
+
+According to the R-squared the model became a bit worse, and the MAE has grown too. 
+
+## 4.5. Inspect New Linear model
+
+```{r echo=FALSE}
+par(mfrow = c(2, 2))
+plot(model_after_pca_17)
+par(mfrow=c(1,1))
+```
+
+Residuals vs Fitted plot - Linear relationship, that is good. 
+
+Normal Q-Q - the tails are observed to be ‘heavier’ (have larger values) than what we would expect under the standard modeling assumptions. It`s OK.
+
+Scale-Location plot - let's do Breusch Pagan Test to check for heteroskedasticity more formally:
+
+```{r include=FALSE}
+bptest(model)
+```
+
+Result: there is heteroskedasticity.
+
+Residuals vs Leverage (observations whose standardized residuals are greater than 3 in absolute value are possible outliers) - there are few influential observations, but no outliers.
+
+# 5. Search for differential proteins Using limma
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(limma)
+
+mouse_naom_de <- mouse_naom
+mouse_naom_de_t <- data.frame(t(mouse_naom_de %>% dplyr::select(where(is.numeric))))
+
+mouse_naom_de$class <- factor(mouse_naom_de$class, 
+                              levels = c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s"))
+mouse_naom_de$Treatment <- factor(mouse_naom_de$Treatment, levels = c("Saline", "Memantine"))
+mouse_naom_de$Behavior <- factor(mouse_naom_de$Behavior, levels = c("S/C", "C/S"))
+mouse_naom_de$Genotype <- as.factor(mouse_naom_de$Genotype)
+
+design_c <- model.matrix(~ mouse_naom_de$class)
+design_g <- model.matrix(~ mouse_naom_de$Genotype)
+design_t <- model.matrix(~ mouse_naom_de$Treatment)
+design_b  <- model.matrix(~ mouse_naom_de$Behavior)
+
+samples <- c("c-SC-s", "c-CS-m", "c-CS-s", "c-SC-m", "t-CS-m", "t-CS-s", "t-SC-m", "t-SC-s")
+colnames(design_c) <- samples
+
+samples <- c("Control", "Ts65Dn")
+colnames(design_g) <- samples
+
+samples <- c("Saline", "Memantine")
+colnames(design_t) <- samples
+
+samples <- c("S/C", "C/S")
+colnames(design_b) <- samples
+```
+
+Expression levels for `r nrow(mouse_naom_de_t)` proteins were assessed.
+
+## 5.1. Behavior
+
+Let's determine how many proteins changed their expression during "stimulation to learning". `SC` was a baseline.
+
+```{r echo=FALSE}
+fit_b <- lmFit(mouse_naom_de_t, design_b)
+
+fit_b <- eBayes(fit_b)
+gene_b_list <- topTable(fit_b, n = 72)
+de_b_result <- filter(gene_b_list, adj.P.Val <= 0.05)
+
+results_b <- decideTests(fit_b, adjust.method="fdr", p=0.05)
+s_res_b <- summary(results_b)[, 2]
+s_res_b
+
+```
+
+**When mouse are stimulated to learn, `r s_res_b[1]` proteins are downregulated, and `r s_res_b[3]` are upregulated.**
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_b <- data.frame(results_b)
+a <- dplyr::filter(results_b, `C.S` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_b, `C.S` == -1)
+rownames(a)
+```
+
+
+## 5.2. Treatment
+
+Let's determine how many proteins changed their expression when mice received memantine. `Saline` was a baseline.
+
+
+```{r echo=FALSE}
+fit_t <- lmFit(mouse_naom_de_t, design_t)
+
+fit_t <- eBayes(fit_t)
+gene_t_list <- topTable(fit_t, n = 72)
+de_t_result <- filter(gene_t_list, adj.P.Val <= 0.05)
+
+results_t <- decideTests(fit_t, adjust.method="fdr", p=0.05)
+s_res_t <- summary(results_t)[, 2]
+s_res_t
+
+```
+
+**When mouse are received memantine, `r s_res_t[1]` proteins are down-regulated, and `r s_res_t[3]` are up-regulated.**
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_t <- data.frame(results_t)
+a <- dplyr::filter(results_t, `Memantine` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_t, `Memantine` == -1)
+rownames(a)
+```
+
+## 5.3. Genotype
+
+Let's determine how many proteins changed their expression for Ts65Dn mouses. `Control` was a baseline.
+
+
+```{r echo=FALSE}
+fit_g <- lmFit(mouse_naom_de_t, design_g)
+
+fit_g <- eBayes(fit_g)
+gene_g_list <- topTable(fit_g, n = 72)
+de_g_result <- filter(gene_g_list, adj.P.Val <= 0.05)
+
+results_g <- decideTests(fit_g, adjust.method="fdr", p=0.05)
+s_res_g <- summary(results_g)[, 2]
+s_res_g
+
+```
+
+**When mouse have Ts65Dn genotype, `r s_res_g[1]` proteins are down-regulated, and `r s_res_g[3]` are up-regulated.**
+
+
+Up-regulated proteins:
+```{r echo=FALSE}
+results_g <- data.frame(results_g)
+a <- dplyr::filter(results_g, `Ts65Dn` == 1)
+rownames(a)
+```
+
+Down-regulated proteins:
+```{r echo=FALSE}
+a <- dplyr::filter(results_g, `Ts65Dn` == -1)
+rownames(a)
+```
+
+## 5.4. Class
+
+Let's determine how class affected protein expression levels. `c-SC-s` was a baseline.
+
+```{r echo=FALSE}
+fit_c <- lmFit(mouse_naom_de_t, design_c)
+
+fit_c <- eBayes(fit_c)
+
+gene_c_list <- topTable(fit_c, n = 72)
+de_c_result <- filter(gene_c_list, adj.P.Val <= 0.05)
+
+results_c <- decideTests(fit_c, adjust.method="fdr", p=0.05)
+
+s_res_c <- summary(results_c)
+pivot_wider(data.frame(s_res_c[, 2:8]), names_from = Var1, values_from = Freq)
+```
+
+Number of up- and -down-regulated proteins are in the table.
+
+# 6. Summary
+
+1. There are `r nrow(mouse)` rows and `r ncol(mouse)` variables in the raw data.
+
+2. **There are `r number_mice` mice** in experiment. All mouses belongs to one **of `r mouse %>% distinct(class) %>% count() %>% .[1,1,1]` classes**.
+
+3. There are mouses with **`r mouse %>% distinct(Genotype) %>% count() %>% .[1,1,1]` genotypes and `r mouse %>% distinct(Behavior) %>% count() %>% .[1,1,1]` behavior under `r mouse %>% distinct(Treatment) %>% count() %>% .[1,1,1]` types of treatment** in dataset.
+
+4. The **number of complete observations is `r mouse %>% filter_all(any_vars(is.na(.))) %>% count() %>% .[1,1,1]`** (there are `r mouse %>% count() %>% .[1,1,1]` observations in total).
+
+5. Violin and box-plots for each protein (after standardization) are in `..\data\plots\` folder.
+
+6. **The levels of BDNF_N production depend on the class in the experiment (F = `r anova_test_BDNF[[3]][1]`, p_value = `r anova_test_BDNF[[4]][1]` , df_1 = `r anova_test_BDNF[[2]][1]`, df_2 = `r anova_test_BDNF[[2]][2]`)**. 
+
+7. There are **statistically significant differences in the levels of BDNF_N production depend on the class in the experiment when pairwise comparison of the production of various class** (Tukey post-hock test).
+
+Groups between which there was a statistically significant difference in BDNF_N protein production:
+
+- the level of BDNF_N production in the experimental group **c-CS-m** is statistically significantly **higher** than the level of BDNF_N production in the
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[2]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[3]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[4]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[5]`),
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-m']`, p-value is `r result_posthoch$test$pvalues[6]`).
+- the level of BDNF_N production in the experimental group **c-CS-s** is statistically significantly **higher** than the level of BDNF_N production in the 
+  - **c-SC-m** group (t-statistic is `r result_posthoch$test$tstat['c-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[8]`), 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[9]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[10]`), 
+  - **t-CS-s** group (t-statistic is `r result_posthoch$test$tstat['t-CS-s - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[11]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-CS-s']`, p-value is `r result_posthoch$test$pvalues[12]`).
+- the level of BDNF_N production in the experimental group **c-SC-m** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **c-SC-s** group (t-statistic is `r result_posthoch$test$tstat['c-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[14]`), 
+  - **t-CS-m** group (t-statistic is `r result_posthoch$test$tstat['t-CS-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[15]`), 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[17]`), 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - c-SC-m']`, p-value is `r result_posthoch$test$pvalues[18]`).
+- the level of BDNF_N production in the experimental group **t-CS-s** is statistically significantly **lower** than the level of BDNF_N production in the 
+  - **t-SC-m** group (t-statistic is `r result_posthoch$test$tstat['t-SC-m - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[26]`) 
+  - **t-SC-s** group (t-statistic is `r result_posthoch$test$tstat['t-SC-s - t-CS-s']`, p-value is `r result_posthoch$test$pvalues[27]`).
+
+8. Linear model for ERBB4_N are built. re are `r nrow(mouse_naom)` rows and `r ncol(mouse_naom)` variables in the new data without NA. \
+  Residual standard error: `r round(sd(model_summary$residuals), 3)` on `r nrow(table(model_summary$residuals)) - ncol(norm.test) + 1` degrees of freedom.\
+  Multiple R-squared:  `r model_summary$r.squared`, Adjusted R-squared: `r model_summary$adj.r.squared`.\
+  F-statistic:  `r round(model_summary$fstatistic, 0)[1]` on `r round(model_summary$fstatistic, 0)[2]` and `r round(model_summary$fstatistic, 0)[3]` DF,  p-value: <2e-16.\
+  MAE = `r mean(abs(norm.test$ERBB4_N - pred_y_lm))`. The model contains too many predictors and some problems, it might be better.\
+  The model contains **too many predictors**, **heteroskedasticity**, and also **multi-collinearity in data** so it might be better.
+
+
+9. We made PCA for Linear model. There are `r ncol(temp_pca_train$CA$u)` principal component, we used 17 (90% of the variability can be explained by 17 main components).\
+  R-squared:  `r pca_model_summary_17$r.squared`, Adjusted R-squared: `r pca_model_summary_17$adj.r.squared`.\
+  (without PCA it was multiple R-squared:  `r model_summary$r.squared`, adjusted R-squared: `r model_summary$adj.r.squared`.)\
+  MAE = `r mean(abs(pca_test_17$ERBB4_N - pca_test_17$new_ERBB4_N))`.\
+  According to the R-squared the model became a bit worse, and the MAE has grown too. 
+
+10. Search for differential proteins Using limma - Expression levels for `r nrow(mouse_naom_de_t)` proteins were assessed.
+
+- **When mouse are stimulated to learn, `r s_res_b[1]` proteins are downregulated, and `r s_res_b[3]` are upregulated.**
+- **When mouse are received memantine, `r s_res_t[1]` proteins are down-regulated, and `r s_res_t[3]` are up-regulated.**
+- **When mouse have Ts65Dn genotype, `r s_res_g[1]` proteins are down-regulated, and `r s_res_g[3]` are up-regulated.**
+
+
+
+
+
+
