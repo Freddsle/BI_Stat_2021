@@ -19,6 +19,6 @@ More information in the corresponding folder.
 ## 4. Practice with Principal component analysis (PCA), Linear models and search for differential proteins
 
 Practice with Principal component analysis (PCA), Linear models and search for differential proteins analysis Using limma.
-More information in the corresponding folder.
+More information in the mouse_project folder.
 
 
